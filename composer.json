@@ -1,5 +1,5 @@
 {
-    "name": "symfony/security-http",
+    "name": "thojtoy/security-http",
     "type": "library",
     "description": "Symfony Security Component - HTTP Integration",
     "keywords": [],
@@ -13,6 +13,10 @@
         {
             "name": "Symfony Community",
             "homepage": "https://symfony.com/contributors"
+        },
+        {
+            "name": "Thorsten Krieger",
+            "homepage": "https://github.com/thorsten-krieger/security-http"
         }
     ],
     "require": {
