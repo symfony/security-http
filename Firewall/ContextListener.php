@@ -209,7 +209,7 @@ class ContextListener extends AbstractListener
                 $newToken->setUser($refreshedUser, false);
 
                 // tokens can be deauthenticated if the user has been changed.
-                if ($token instanceof AbstractToken && $this->hasUserChanged($user, $newToken)) {
+                if ($token instanceof AbstractToken && $this->hasUserChanged($refreshedUser, $newToken)) {
                     $userDeauthenticated = true;
 
                     $this->logger?->debug('Cannot refresh token because user has changed.', ['username' => $refreshedUser->getUserIdentifier(), 'provider' => $provider::class]);
