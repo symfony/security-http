@@ -10,6 +10,7 @@ CHANGELOG
  * Support hashing the hashed password using crc32c when putting the user in the session
  * Add support for closures in `#[IsGranted]`
  * Add `OAuth2TokenHandler` with OAuth2 Token Introspection support for `AccessTokenAuthenticator`
+ * Add discovery support to `OidcTokenHandler` and `OidcUserInfoTokenHandler`
 
 7.2
 ---

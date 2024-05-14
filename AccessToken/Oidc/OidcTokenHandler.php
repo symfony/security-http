@@ -34,6 +34,8 @@ use Symfony\Component\Security\Http\AccessToken\Oidc\Exception\InvalidSignatureE
 use Symfony\Component\Security\Http\AccessToken\Oidc\Exception\MissingClaimException;
 use Symfony\Component\Security\Http\Authenticator\FallbackUserLoader;
 use Symfony\Component\Security\Http\Authenticator\Passport\Badge\UserBadge;
+use Symfony\Contracts\Cache\CacheInterface;
+use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 /**
  * The token handler decodes and validates the token, and retrieves the user identifier from it.
@@ -45,9 +47,14 @@ final class OidcTokenHandler implements AccessTokenHandlerInterface
     private ?AlgorithmManager $decryptionAlgorithms = null;
     private bool $enforceEncryption = false;
 
+    private ?CacheInterface $discoveryCache = null;
+    private ?HttpClientInterface $discoveryClient = null;
+    private ?string $oidcConfigurationCacheKey = null;
+    private ?string $oidcJWKSetCacheKey = null;
+
     public function __construct(
         private Algorithm|AlgorithmManager $signatureAlgorithm,
-        private JWK|JWKSet $signatureKeyset,
+        private JWK|JWKSet|null $signatureKeyset,
         private string $audience,
         private array $issuers,
         private string $claim = 'sub',
@@ -71,15 +78,64 @@ final class OidcTokenHandler implements AccessTokenHandlerInterface
         $this->enforceEncryption = $enforceEncryption;
     }
 
+    public function enabledDiscovery(CacheInterface $cache, HttpClientInterface $client, string $oidcConfigurationCacheKey, string $oidcJWKSetCacheKey): void
+    {
+        $this->discoveryCache = $cache;
+        $this->discoveryClient = $client;
+        $this->oidcConfigurationCacheKey = $oidcConfigurationCacheKey;
+        $this->oidcJWKSetCacheKey = $oidcJWKSetCacheKey;
+    }
+
     public function getUserBadgeFrom(string $accessToken): UserBadge
     {
         if (!class_exists(JWSVerifier::class) || !class_exists(Checker\HeaderCheckerManager::class)) {
             throw new \LogicException('You cannot use the "oidc" token handler since "web-token/jwt-signature" and "web-token/jwt-checker" are not installed. Try running "composer require web-token/jwt-signature web-token/jwt-checker".');
         }
 
+        if (!$this->discoveryCache && !$this->signatureKeyset) {
+            throw new \LogicException('You cannot use the "oidc" token handler without JWKSet nor "discovery". Please configure JWKSet in the constructor, or call "enableDiscovery" method.');
+        }
+
+        $jwkset = $this->signatureKeyset;
+        if ($this->discoveryCache) {
+            try {
+                $oidcConfiguration = json_decode($this->discoveryCache->get($this->oidcConfigurationCacheKey, function (): string {
+                    $response = $this->discoveryClient->request('GET', '.well-known/openid-configuration');
+
+                    return $response->getContent();
+                }), true, 512, \JSON_THROW_ON_ERROR);
+            } catch (\Throwable $e) {
+                $this->logger?->error('An error occurred while requesting OIDC configuration.', [
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                ]);
+
+                throw new BadCredentialsException('Invalid credentials.', $e->getCode(), $e);
+            }
+
+            try {
+                $jwkset = JWKSet::createFromJson(
+                    $this->discoveryCache->get($this->oidcJWKSetCacheKey, function () use ($oidcConfiguration): string {
+                        $response = $this->discoveryClient->request('GET', $oidcConfiguration['jwks_uri']);
+                        // we only need signature key
+                        $keys = array_filter($response->toArray()['keys'], static fn (array $key) => 'sig' === $key['use']);
+
+                        return json_encode(['keys' => $keys]);
+                    })
+                );
+            } catch (\Throwable $e) {
+                $this->logger?->error('An error occurred while requesting OIDC certs.', [
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                ]);
+
+                throw new BadCredentialsException('Invalid credentials.', $e->getCode(), $e);
+            }
+        }
+
         try {
             $accessToken = $this->decryptIfNeeded($accessToken);
-            $claims = $this->loadAndVerifyJws($accessToken);
+            $claims = $this->loadAndVerifyJws($accessToken, $jwkset);
             $this->verifyClaims($claims);
 
             if (empty($claims[$this->claim])) {
@@ -98,7 +154,7 @@ final class OidcTokenHandler implements AccessTokenHandlerInterface
         }
     }
 
-    private function loadAndVerifyJws(string $accessToken): array
+    private function loadAndVerifyJws(string $accessToken, JWKSet $jwkset): array
     {
         // Decode the token
         $jwsVerifier = new JWSVerifier($this->signatureAlgorithm);
@@ -106,7 +162,7 @@ final class OidcTokenHandler implements AccessTokenHandlerInterface
         $jws = $serializerManager->unserialize($accessToken);
 
         // Verify the signature
-        if (!$jwsVerifier->verifyWithKeySet($jws, $this->signatureKeyset, 0)) {
+        if (!$jwsVerifier->verifyWithKeySet($jws, $jwkset, 0)) {
             throw new InvalidSignatureException();
         }
 
