@@ -5,6 +5,7 @@ CHANGELOG
 ---
 
  * Add encryption support to `OidcTokenHandler` (JWE)
+ * Replace `$hideAccountStatusExceptions` argument with `$exposeSecurityErrors` in `AuthenticatorManager` constructor
 
 7.2
 ---

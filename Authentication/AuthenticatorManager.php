@@ -46,6 +46,8 @@ use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
  */
 class AuthenticatorManager implements AuthenticatorManagerInterface, UserAuthenticatorInterface
 {
+    private ExposeSecurityLevel $exposeSecurityErrors;
+
     /**
      * @param iterable<mixed, AuthenticatorInterface> $authenticators
      */
@@ -56,9 +58,17 @@ class AuthenticatorManager implements AuthenticatorManagerInterface, UserAuthent
         private string $firewallName,
         private ?LoggerInterface $logger = null,
         private bool $eraseCredentials = true,
-        private bool $hideUserNotFoundExceptions = true,
+        ExposeSecurityLevel|bool $exposeSecurityErrors = ExposeSecurityLevel::None,
         private array $requiredBadges = [],
     ) {
+        if (\is_bool($exposeSecurityErrors)) {
+            trigger_deprecation('symfony/security-http', '7.3', 'Passing a boolean as "exposeSecurityErrors" parameter is deprecated, use %s value instead.', ExposeSecurityLevel::class);
+
+            // The old parameter had an inverted meaning ($hideUserNotFoundExceptions), for that reason the current name does not reflect the behavior
+            $exposeSecurityErrors = $exposeSecurityErrors ? ExposeSecurityLevel::None : ExposeSecurityLevel::All;
+        }
+
+        $this->exposeSecurityErrors = $exposeSecurityErrors;
     }
 
     /**
@@ -250,7 +260,7 @@ class AuthenticatorManager implements AuthenticatorManagerInterface, UserAuthent
 
         // Avoid leaking error details in case of invalid user (e.g. user not found or invalid account status)
         // to prevent user enumeration via response content comparison
-        if ($this->hideUserNotFoundExceptions && ($authenticationException instanceof UserNotFoundException || ($authenticationException instanceof AccountStatusException && !$authenticationException instanceof CustomUserMessageAccountStatusException))) {
+        if ($this->isSensitiveException($authenticationException)) {
             $authenticationException = new BadCredentialsException('Bad credentials.', 0, $authenticationException);
         }
 
@@ -263,5 +273,18 @@ class AuthenticatorManager implements AuthenticatorManagerInterface, UserAuthent
 
         // returning null is ok, it means they want the request to continue
         return $loginFailureEvent->getResponse();
+    }
+
+    private function isSensitiveException(AuthenticationException $exception): bool
+    {
+        if (ExposeSecurityLevel::All !== $this->exposeSecurityErrors && $exception instanceof UserNotFoundException) {
+            return true;
+        }
+
+        if (ExposeSecurityLevel::None === $this->exposeSecurityErrors && $exception instanceof AccountStatusException && !$exception instanceof CustomUserMessageAccountStatusException) {
+            return true;
+        }
+
+        return false;
     }
 }
