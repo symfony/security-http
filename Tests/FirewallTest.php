@@ -11,6 +11,8 @@
 
 namespace Symfony\Component\Security\Http\Tests;
 
+use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\IgnoreDeprecations;
 use PHPUnit\Framework\TestCase;
 use Symfony\Bridge\PhpUnit\ExpectUserDeprecationMessageTrait;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
@@ -165,9 +167,8 @@ class FirewallTest extends TestCase
         $this->assertSame(['firewallListener', 'callableFirewallListener'], $calledListeners);
     }
 
-    /**
-     * @group legacy
-     */
+    #[IgnoreDeprecations]
+    #[Group('legacy')]
     public function testCallableListenersAreCalled()
     {
         $calledListeners = [];

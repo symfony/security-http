@@ -11,11 +11,13 @@
 
 namespace Symfony\Component\Security\Http\Tests\Authentication;
 
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\IgnoreDeprecations;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\AbstractLogger;
 use Psr\Log\LoggerInterface;
-use Symfony\Bridge\PhpUnit\ExpectUserDeprecationMessageTrait;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -40,8 +42,6 @@ use Symfony\Component\Security\Http\Tests\Fixtures\DummySupportsAuthenticator;
 
 class AuthenticatorManagerBCTest extends TestCase
 {
-    use ExpectUserDeprecationMessageTrait;
-
     private MockObject&TokenStorageInterface $tokenStorage;
     private EventDispatcher $eventDispatcher;
     private Request $request;
@@ -60,11 +60,9 @@ class AuthenticatorManagerBCTest extends TestCase
         $this->response = $this->createMock(Response::class);
     }
 
-    /**
-     * @dataProvider provideSupportsData
-     *
-     * @group legacy
-     */
+    #[IgnoreDeprecations]
+    #[Group('legacy')]
+    #[DataProvider('provideSupportsData')]
     public function testSupports($authenticators, $result)
     {
         $manager = $this->createManager($authenticators, hideUserNotFoundExceptions: true);
@@ -84,9 +82,8 @@ class AuthenticatorManagerBCTest extends TestCase
         yield [[], false];
     }
 
-    /**
-     * @group legacy
-     */
+    #[IgnoreDeprecations]
+    #[Group('legacy')]
     public function testSupportsInvalidAuthenticator()
     {
         $manager = $this->createManager([new \stdClass()], hideUserNotFoundExceptions: true);
@@ -98,9 +95,8 @@ class AuthenticatorManagerBCTest extends TestCase
         $manager->supports($this->request);
     }
 
-    /**
-     * @group legacy
-     */
+    #[IgnoreDeprecations]
+    #[Group('legacy')]
     public function testSupportCheckedUponRequestAuthentication()
     {
         // the attribute stores the supported authenticators, returning false now
@@ -115,11 +111,9 @@ class AuthenticatorManagerBCTest extends TestCase
         $manager->authenticateRequest($this->request);
     }
 
-    /**
-     * @dataProvider provideMatchingAuthenticatorIndex
-     *
-     * @group legacy
-     */
+    #[IgnoreDeprecations]
+    #[Group('legacy')]
+    #[DataProvider('provideMatchingAuthenticatorIndex')]
     public function testAuthenticateRequest($matchingAuthenticatorIndex)
     {
         $authenticators = [$this->createAuthenticator(0 === $matchingAuthenticatorIndex), $this->createAuthenticator(1 === $matchingAuthenticatorIndex)];
@@ -151,9 +145,8 @@ class AuthenticatorManagerBCTest extends TestCase
         yield [1];
     }
 
-    /**
-     * @group legacy
-     */
+    #[IgnoreDeprecations]
+    #[Group('legacy')]
     public function testNoCredentialsValidated()
     {
         $authenticator = $this->createAuthenticator();
@@ -169,9 +162,8 @@ class AuthenticatorManagerBCTest extends TestCase
         $manager->authenticateRequest($this->request);
     }
 
-    /**
-     * @group legacy
-     */
+    #[IgnoreDeprecations]
+    #[Group('legacy')]
     public function testRequiredBadgeMissing()
     {
         $authenticator = $this->createAuthenticator();
@@ -185,9 +177,8 @@ class AuthenticatorManagerBCTest extends TestCase
         $manager->authenticateRequest($this->request);
     }
 
-    /**
-     * @group legacy
-     */
+    #[IgnoreDeprecations]
+    #[Group('legacy')]
     public function testAllRequiredBadgesPresent()
     {
         $authenticator = $this->createAuthenticator();
@@ -204,11 +195,9 @@ class AuthenticatorManagerBCTest extends TestCase
         $manager->authenticateRequest($this->request);
     }
 
-    /**
-     * @dataProvider provideEraseCredentialsData
-     *
-     * @group legacy
-     */
+    #[IgnoreDeprecations]
+    #[Group('legacy')]
+    #[DataProvider('provideEraseCredentialsData')]
     public function testEraseCredentials($eraseCredentials)
     {
         $authenticator = $this->createAuthenticator();
@@ -230,9 +219,8 @@ class AuthenticatorManagerBCTest extends TestCase
         yield [false];
     }
 
-    /**
-     * @group legacy
-     */
+    #[IgnoreDeprecations]
+    #[Group('legacy')]
     public function testAuthenticateRequestCanModifyTokenFromEvent()
     {
         $authenticator = $this->createAuthenticator();
@@ -257,9 +245,8 @@ class AuthenticatorManagerBCTest extends TestCase
         $this->assertTrue($listenerCalled, 'The AuthenticationTokenCreatedEvent listener is not called');
     }
 
-    /**
-     * @group legacy
-     */
+    #[IgnoreDeprecations]
+    #[Group('legacy')]
     public function testAuthenticateUser()
     {
         $authenticator = $this->createAuthenticator();
@@ -283,9 +270,8 @@ class AuthenticatorManagerBCTest extends TestCase
         $manager->authenticateUser($this->user, $authenticator, $this->request, [$badge], ['attr' => 'foo', 'attr2' => 'bar']);
     }
 
-    /**
-     * @group legacy
-     */
+    #[IgnoreDeprecations]
+    #[Group('legacy')]
     public function testAuthenticateUserCanModifyTokenFromEvent()
     {
         $authenticator = $this->createAuthenticator();
@@ -307,9 +293,8 @@ class AuthenticatorManagerBCTest extends TestCase
         $this->assertTrue($listenerCalled, 'The AuthenticationTokenCreatedEvent listener is not called');
     }
 
-    /**
-     * @group legacy
-     */
+    #[IgnoreDeprecations]
+    #[Group('legacy')]
     public function testInteractiveAuthenticator()
     {
         $authenticator = $this->createMock(TestInteractiveBCAuthenticator::class);
@@ -331,9 +316,8 @@ class AuthenticatorManagerBCTest extends TestCase
         $this->assertSame($this->response, $response);
     }
 
-    /**
-     * @group legacy
-     */
+    #[IgnoreDeprecations]
+    #[Group('legacy')]
     public function testLegacyInteractiveAuthenticator()
     {
         $authenticator = $this->createMock(InteractiveAuthenticatorInterface::class);
@@ -355,9 +339,8 @@ class AuthenticatorManagerBCTest extends TestCase
         $this->assertSame($this->response, $response);
     }
 
-    /**
-     * @group legacy
-     */
+    #[IgnoreDeprecations]
+    #[Group('legacy')]
     public function testAuthenticateRequestHidesInvalidUserExceptions()
     {
         $invalidUserException = new UserNotFoundException();
@@ -376,9 +359,8 @@ class AuthenticatorManagerBCTest extends TestCase
         $this->assertSame($this->response, $response);
     }
 
-    /**
-     * @group legacy
-     */
+    #[IgnoreDeprecations]
+    #[Group('legacy')]
     public function testAuthenticateRequestShowsAccountStatusException()
     {
         $invalidUserException = new LockedException();
@@ -397,9 +379,8 @@ class AuthenticatorManagerBCTest extends TestCase
         $this->assertSame($this->response, $response);
     }
 
-    /**
-     * @group legacy
-     */
+    #[IgnoreDeprecations]
+    #[Group('legacy')]
     public function testAuthenticateRequestHidesInvalidAccountStatusException()
     {
         $invalidUserException = new LockedException();
@@ -418,9 +399,8 @@ class AuthenticatorManagerBCTest extends TestCase
         $this->assertSame($this->response, $response);
     }
 
-    /**
-     * @group legacy
-     */
+    #[IgnoreDeprecations]
+    #[Group('legacy')]
     public function testLogsUseTheDecoratedAuthenticatorWhenItIsTraceable()
     {
         $authenticator = $this->createMock(TestInteractiveBCAuthenticator::class);
