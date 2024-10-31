@@ -18,6 +18,7 @@ use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorage;
 use Symfony\Component\Security\Core\Authentication\Token\SwitchUserToken;
+use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Authentication\Token\UsernamePasswordToken;
 use Symfony\Component\Security\Core\Authorization\AccessDecisionManagerInterface;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
@@ -228,7 +229,10 @@ class SwitchUserListenerTest extends TestCase
 
         $targetsUser = $this->callback(function ($user) { return 'kuba' === $user->getUserIdentifier(); });
         $this->accessDecisionManager->expects($this->once())
-            ->method('decide')->with($originalToken, ['ROLE_ALLOWED_TO_SWITCH'], $targetsUser)
+            ->method('decide')->with(self::callback(function (TokenInterface $token) use ($originalToken, $tokenStorage) {
+                // the token storage should also contain the original token for voters depending on it
+                return $token === $originalToken && $tokenStorage->getToken() === $originalToken;
+            }), ['ROLE_ALLOWED_TO_SWITCH'], $targetsUser)
             ->willReturn(true);
 
         $this->userChecker->expects($this->once())
