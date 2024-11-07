@@ -80,7 +80,7 @@ class PersistentRememberMeHandlerTest extends TestCase
         $this->tokenProvider->expects($this->any())
             ->method('loadTokenBySeries')
             ->with('series1')
-            ->willReturn(new PersistentToken(InMemoryUser::class, 'wouter', 'series1', 'tokenvalue', new \DateTime('-10 min')))
+            ->willReturn(new PersistentToken(InMemoryUser::class, 'wouter', 'series1', 'tokenvalue', $lastUsed = new \DateTime('-10 min')))
         ;
 
         $this->tokenProvider->expects($this->once())->method('updateToken')->with('series1');
@@ -98,9 +98,39 @@ class PersistentRememberMeHandlerTest extends TestCase
 
         $this->assertSame($rememberParts[0], $cookieParts[0]); // class
         $this->assertSame($rememberParts[1], $cookieParts[1]); // identifier
-        $this->assertSame($rememberParts[2], $cookieParts[2]); // expire
+        $this->assertEqualsWithDelta($lastUsed->getTimestamp() + 31536000, (int) $cookieParts[2], 2); // expire
         $this->assertNotSame($rememberParts[3], $cookieParts[3]); // value
         $this->assertSame(explode(':', $rememberParts[3])[0], explode(':', $cookieParts[3])[0]); // series
+    }
+
+    public function testConsumeRememberMeCookieInvalidOwner()
+    {
+        $this->tokenProvider->expects($this->any())
+            ->method('loadTokenBySeries')
+            ->with('series1')
+            ->willReturn(new PersistentToken(InMemoryUser::class, 'wouter', 'series1', 'tokenvalue', new \DateTime('-10 min')))
+        ;
+
+        $rememberMeDetails = new RememberMeDetails(InMemoryUser::class, 'jeremy', 360, 'series1:tokenvalue');
+
+        $this->expectException(AuthenticationException::class);
+        $this->expectExceptionMessage('The cookie\'s hash is invalid.');
+        $this->handler->consumeRememberMeCookie($rememberMeDetails);
+    }
+
+    public function testConsumeRememberMeCookieInvalidValue()
+    {
+        $this->tokenProvider->expects($this->any())
+            ->method('loadTokenBySeries')
+            ->with('series1')
+            ->willReturn(new PersistentToken(InMemoryUser::class, 'wouter', 'series1', 'tokenvalue', new \DateTime('-10 min')))
+        ;
+
+        $rememberMeDetails = new RememberMeDetails(InMemoryUser::class, 'wouter', 360, 'series1:tokenvalue:somethingelse');
+
+        $this->expectException(AuthenticationException::class);
+        $this->expectExceptionMessage('This token was already used. The account is possibly compromised.');
+        $this->handler->consumeRememberMeCookie($rememberMeDetails);
     }
 
     public function testConsumeRememberMeCookieValidByValidatorWithoutUpdate()
