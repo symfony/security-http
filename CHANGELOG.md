@@ -14,7 +14,7 @@ CHANGELOG
 
  * Add `#[IsCsrfTokenValid]` attribute
  * Add CAS 2.0 access token handler
- * Make empty username or empty password on form login attempts return Bad Request (400)
+ * Make empty username or empty password on form login attempts throw `BadCredentialsException`
 
 7.0
 ---
