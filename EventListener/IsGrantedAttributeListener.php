@@ -55,6 +55,8 @@ class IsGrantedAttributeListener implements EventSubscriberInterface
                     foreach ($subjectRef as $refKey => $ref) {
                         $subject[\is_string($refKey) ? $refKey : (string) $ref] = $this->getIsGrantedSubject($ref, $request, $arguments);
                     }
+                } elseif ($subjectRef instanceof \Closure) {
+                    $subject = $subjectRef($arguments, $request);
                 } else {
                     $subject = $this->getIsGrantedSubject($subjectRef, $request, $arguments);
                 }
@@ -69,7 +71,7 @@ class IsGrantedAttributeListener implements EventSubscriberInterface
                 }
 
                 $e = new AccessDeniedException($message, code: $attribute->exceptionCode ?? 403);
-                $e->setAttributes($attribute->attribute);
+                $e->setAttributes([$attribute->attribute]);
                 $e->setSubject($subject);
                 $e->setAccessDecision($accessDecision);
 
