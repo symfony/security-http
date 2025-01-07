@@ -162,6 +162,7 @@ class ContextListener extends AbstractListener
         $session = $request->getSession();
         $sessionId = $session->getId();
         $usageIndexValue = $session instanceof Session ? $usageIndexReference = &$session->getUsageIndex() : null;
+        $usageIndexReference = \PHP_INT_MIN;
         $token = $this->tokenStorage->getToken();
 
         if (!$this->trustResolver->isAuthenticated($token)) {
@@ -176,6 +177,8 @@ class ContextListener extends AbstractListener
 
         if ($this->sessionTrackerEnabler && $session->getId() === $sessionId) {
             $usageIndexReference = $usageIndexValue;
+        } else {
+            $usageIndexReference = $usageIndexReference - \PHP_INT_MIN + $usageIndexValue;
         }
     }
 
