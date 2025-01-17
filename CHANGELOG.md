@@ -1,6 +1,11 @@
 CHANGELOG
 =========
 
+7.3
+---
+
+ * Add encryption support to `OidcTokenHandler` (JWE)
+
 7.2
 ---
 
