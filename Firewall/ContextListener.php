@@ -191,7 +191,7 @@ class ContextListener extends AbstractListener
      *
      * @throws \RuntimeException
      */
-    protected function refreshUser(TokenInterface $token): ?TokenInterface
+    private function refreshUser(TokenInterface $token): ?TokenInterface
     {
         $user = $token->getUser();
 
@@ -292,7 +292,10 @@ class ContextListener extends AbstractListener
         }
 
         if ($originalUser instanceof PasswordAuthenticatedUserInterface || $refreshedUser instanceof PasswordAuthenticatedUserInterface) {
-            if (!$originalUser instanceof PasswordAuthenticatedUserInterface || !$refreshedUser instanceof PasswordAuthenticatedUserInterface || $originalUser->getPassword() !== $refreshedUser->getPassword()) {
+            if (!$originalUser instanceof PasswordAuthenticatedUserInterface
+                || !$refreshedUser instanceof PasswordAuthenticatedUserInterface
+                || $refreshedUser->getPassword() !== ($originalUser->getPassword() ?? $refreshedUser->getPassword())
+            ) {
                 return true;
             }
 

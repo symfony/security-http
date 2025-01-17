@@ -42,11 +42,7 @@ class AccessListenerTest extends TestCase
             ->willReturn([['foo' => 'bar'], null])
         ;
 
-        $token = new class extends AbstractToken {
-            public function getCredentials(): mixed
-            {
-            }
-        };
+        $token = new class extends AbstractToken {};
 
         $tokenStorage = $this->createMock(TokenStorageInterface::class);
         $tokenStorage

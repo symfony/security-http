@@ -36,6 +36,7 @@ use Symfony\Component\Security\Core\User\InMemoryUser;
 use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Security\Core\User\UserProviderInterface;
 use Symfony\Component\Security\Http\Firewall\ContextListener;
+use Symfony\Component\Security\Http\Tests\Fixtures\CustomUser;
 use Symfony\Component\Security\Http\Tests\Fixtures\NullUserToken;
 use Symfony\Contracts\Service\ServiceLocatorTrait;
 
@@ -376,6 +377,25 @@ class ContextListenerTest extends TestCase
         $this->assertEmpty($dispatcher->getListeners());
     }
 
+    public function testRemovingPasswordFromSessionDoesntInvalidateTheToken()
+    {
+        $user = new CustomUser('user', ['ROLE_USER'], 'pass');
+
+        $userProvider = $this->createMock(UserProviderInterface::class);
+        $userProvider->expects($this->once())
+            ->method('supportsClass')
+            ->with(CustomUser::class)
+            ->willReturn(true);
+        $userProvider->expects($this->once())
+            ->method('refreshUser')
+            ->willReturn($user);
+
+        $tokenStorage = $this->handleEventWithPreviousSession([$userProvider], $user);
+
+        $this->assertInstanceOf(UsernamePasswordToken::class, $tokenStorage->getToken());
+        $this->assertSame($user, $tokenStorage->getToken()->getUser());
+    }
+
     protected function runSessionOnKernelResponse($newToken, $original = null)
     {
         $session = new Session(new MockArraySessionStorage());
@@ -566,10 +586,6 @@ class CustomToken implements TokenInterface
     public function getRoleNames(): array
     {
         return $this->roles;
-    }
-
-    public function getCredentials()
-    {
     }
 
     public function getUser(): UserInterface
