@@ -6,6 +6,7 @@ CHANGELOG
 
  * Add encryption support to `OidcTokenHandler` (JWE)
  * Replace `$hideAccountStatusExceptions` argument with `$exposeSecurityErrors` in `AuthenticatorManager` constructor
+ * Add argument `$identifierNormalizer` to `UserBadge::__construct()` to allow normalizing the identifier
 
 7.2
 ---
