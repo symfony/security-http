@@ -301,11 +301,12 @@ class ContextListener extends AbstractListener
             }
         }
 
-        $userRoles = array_map('strval', $refreshedUser->getRoles());
+        $refreshedRoles = array_map('strval', $refreshedUser->getRoles());
+        $originalRoles = $refreshedToken->getRoleNames(); // This comes from cloning the original token, so it still contains the roles of the original user
 
         if (
-            \count($userRoles) !== \count($refreshedToken->getRoleNames())
-            || \count($userRoles) !== \count(array_intersect($userRoles, $refreshedToken->getRoleNames()))
+            \count($refreshedRoles) !== \count($originalRoles)
+            || \count($refreshedRoles) !== \count(array_intersect($refreshedRoles, $originalRoles))
         ) {
             return true;
         }
