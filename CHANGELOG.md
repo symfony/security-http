@@ -7,6 +7,7 @@ CHANGELOG
  * Add encryption support to `OidcTokenHandler` (JWE)
  * Replace `$hideAccountStatusExceptions` argument with `$exposeSecurityErrors` in `AuthenticatorManager` constructor
  * Add argument `$identifierNormalizer` to `UserBadge::__construct()` to allow normalizing the identifier
+ * Support hashing the hashed password using crc32c when putting the user in the session
 
 7.2
 ---

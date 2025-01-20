@@ -377,9 +377,14 @@ class ContextListenerTest extends TestCase
         $this->assertEmpty($dispatcher->getListeners());
     }
 
-    public function testRemovingPasswordFromSessionDoesntInvalidateTheToken()
+    /**
+     * @testWith [true]
+     *           [false]
+     *           [null]
+     */
+    public function testNullOrHashedPasswordInSessionDoesntInvalidateTheToken(?bool $hashPassword)
     {
-        $user = new CustomUser('user', ['ROLE_USER'], 'pass');
+        $user = new CustomUser('user', ['ROLE_USER'], 'pass', $hashPassword);
 
         $userProvider = $this->createMock(UserProviderInterface::class);
         $userProvider->expects($this->once())

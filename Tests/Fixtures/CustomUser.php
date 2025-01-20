@@ -19,7 +19,8 @@ final class CustomUser implements UserInterface, PasswordAuthenticatedUserInterf
     public function __construct(
         private string $username,
         private array $roles,
-        private ?string $password = null,
+        private ?string $password,
+        private ?bool $hashPassword,
     ) {
     }
 
@@ -44,6 +45,15 @@ final class CustomUser implements UserInterface, PasswordAuthenticatedUserInterf
 
     public function __serialize(): array
     {
-        return [\sprintf("\0%s\0username", self::class) => $this->username];
+        $data = (array) $this;
+        $passwordKey = \sprintf("\0%s\0password", self::class);
+
+        if ($this->hashPassword) {
+            $data[$passwordKey] = hash('crc32c', $this->password);
+        } elseif (null !== $this->hashPassword) {
+            unset($data[$passwordKey]);
+        }
+
+        return $data;
     }
 }
