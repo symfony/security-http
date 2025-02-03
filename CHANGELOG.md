@@ -6,8 +6,6 @@ CHANGELOG
 
  * Add encryption support to `OidcTokenHandler` (JWE)
  * Replace `$hideAccountStatusExceptions` argument with `$exposeSecurityErrors` in `AuthenticatorManager` constructor
- * Deprecate passing `true` for the `$eraseCredentials` parameter of `AuthenticatorManager::__construct()`, erase credentials
-  on your own e.g. upon `AuthenticationTokenCreatedEvent` instead. Passing it won't thave any effect in 8.0.
 
 7.2
 ---
