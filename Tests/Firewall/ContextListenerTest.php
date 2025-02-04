@@ -563,19 +563,9 @@ class CustomToken implements TokenInterface
         return [$this->user, $this->roles];
     }
 
-    public function serialize(): string
-    {
-        return serialize($this->__serialize());
-    }
-
     public function __unserialize(array $data): void
     {
         [$this->user, $this->roles] = $data;
-    }
-
-    public function unserialize($serialized)
-    {
-        $this->__unserialize(\is_array($serialized) ? $serialized : unserialize($serialized));
     }
 
     public function __toString(): string
@@ -603,6 +593,7 @@ class CustomToken implements TokenInterface
         return $this->getUserIdentifier();
     }
 
+    #[\Deprecated]
     public function eraseCredentials(): void
     {
     }

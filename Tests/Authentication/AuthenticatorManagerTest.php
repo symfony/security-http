@@ -15,9 +15,11 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\AbstractLogger;
 use Psr\Log\LoggerInterface;
+use Symfony\Bridge\PhpUnit\ExpectDeprecationTrait;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Security\Core\Authentication\Token\AbstractToken;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Authentication\Token\UsernamePasswordToken;
@@ -40,6 +42,8 @@ use Symfony\Component\Security\Http\Tests\Fixtures\DummySupportsAuthenticator;
 
 class AuthenticatorManagerTest extends TestCase
 {
+    use ExpectDeprecationTrait;
+
     private MockObject&TokenStorageInterface $tokenStorage;
     private EventDispatcher $eventDispatcher;
     private Request $request;
@@ -184,6 +188,8 @@ class AuthenticatorManagerTest extends TestCase
     }
 
     /**
+     * @group legacy
+     *
      * @dataProvider provideEraseCredentialsData
      */
     public function testEraseCredentials($eraseCredentials)
@@ -193,12 +199,25 @@ class AuthenticatorManagerTest extends TestCase
 
         $authenticator->expects($this->any())->method('authenticate')->willReturn(new SelfValidatingPassport(new UserBadge('wouter', fn () => $this->user)));
 
-        $authenticator->expects($this->any())->method('createToken')->willReturn($this->token);
+        $token = new class extends AbstractToken {
+            public $erased = false;
 
-        $this->token->expects($eraseCredentials ? $this->once() : $this->never())->method('eraseCredentials');
+            public function eraseCredentials(): void
+            {
+                $this->erased = true;
+            }
+        };
+
+        $authenticator->expects($this->any())->method('createToken')->willReturn($token);
+
+        if ($eraseCredentials) {
+            $this->expectDeprecation(\sprintf('Since symfony/security-http 7.3: Implementing "%s@anonymous::eraseCredentials()" is deprecated since Symfony 7.3; add the #[\Deprecated] attribute on the method to signal its either empty or that you moved the logic elsewhere, typically to the "__serialize()" method.', AbstractToken::class));
+        }
 
         $manager = $this->createManager([$authenticator], 'main', $eraseCredentials, exposeSecurityErrors: ExposeSecurityLevel::None);
         $manager->authenticateRequest($this->request);
+
+        $this->assertSame($eraseCredentials, $token->erased);
     }
 
     public static function provideEraseCredentialsData()
@@ -403,7 +422,7 @@ class AuthenticatorManagerTest extends TestCase
             }
         };
 
-        $manager = $this->createManager([$authenticator], 'main', true, [], $logger, exposeSecurityErrors: ExposeSecurityLevel::None);
+        $manager = $this->createManager([$authenticator], 'main', false, [], $logger, exposeSecurityErrors: ExposeSecurityLevel::None);
         $response = $manager->authenticateRequest($this->request);
         $this->assertSame($this->response, $response);
         $this->assertStringContainsString($authenticator::class, $logger->logContexts[0]['authenticator']);
@@ -422,7 +441,7 @@ class AuthenticatorManagerTest extends TestCase
         return new DummySupportsAuthenticator($supports);
     }
 
-    private function createManager($authenticators, $firewallName = 'main', $eraseCredentials = true, array $requiredBadges = [], ?LoggerInterface $logger = null, ExposeSecurityLevel $exposeSecurityErrors = ExposeSecurityLevel::AccountStatus)
+    private function createManager($authenticators, $firewallName = 'main', $eraseCredentials = false, array $requiredBadges = [], ?LoggerInterface $logger = null, ExposeSecurityLevel $exposeSecurityErrors = ExposeSecurityLevel::AccountStatus)
     {
         return new AuthenticatorManager($authenticators, $this->tokenStorage, $this->eventDispatcher, $firewallName, $logger, $eraseCredentials, $exposeSecurityErrors, $requiredBadges);
     }

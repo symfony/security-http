@@ -14,6 +14,7 @@ namespace Symfony\Component\Security\Http\Authentication;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Security\Core\Authentication\Token\AbstractToken;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\AuthenticationEvents;
@@ -208,8 +209,8 @@ class AuthenticatorManager implements AuthenticatorManagerInterface, UserAuthent
             // announce the authentication token
             $authenticatedToken = $this->eventDispatcher->dispatch(new AuthenticationTokenCreatedEvent($authenticatedToken, $passport))->getAuthenticatedToken();
 
-            if (true === $this->eraseCredentials) {
-                $authenticatedToken->eraseCredentials();
+            if ($this->eraseCredentials) {
+                self::checkEraseCredentials($authenticatedToken)?->eraseCredentials();
             }
 
             $this->eventDispatcher->dispatch(new AuthenticationSuccessEvent($authenticatedToken), AuthenticationEvents::AUTHENTICATION_SUCCESS);
@@ -286,5 +287,42 @@ class AuthenticatorManager implements AuthenticatorManagerInterface, UserAuthent
         }
 
         return false;
+    }
+
+    /**
+     * @deprecated since Symfony 7.3
+     */
+    private static function checkEraseCredentials(TokenInterface|UserInterface|null $token): TokenInterface|UserInterface|null
+    {
+        if (!$token || !method_exists($token, 'eraseCredentials')) {
+            return null;
+        }
+
+        static $genericImplementations = [];
+        $m = null;
+
+        if (!isset($genericImplementations[$token::class])) {
+            $m = new \ReflectionMethod($token, 'eraseCredentials');
+            $genericImplementations[$token::class] = AbstractToken::class === $m->class;
+        }
+
+        if ($genericImplementations[$token::class]) {
+            return self::checkEraseCredentials($token->getUser());
+        }
+
+        static $deprecatedImplementations = [];
+
+        if (!isset($deprecatedImplementations[$token::class])) {
+            $m ??= new \ReflectionMethod($token, 'eraseCredentials');
+            $deprecatedImplementations[$token::class] = !$m->getAttributes(\Deprecated::class);
+        }
+
+        if ($deprecatedImplementations[$token::class]) {
+            trigger_deprecation('symfony/security-http', '7.3', 'Implementing "%s::eraseCredentials()" is deprecated since Symfony 7.3; add the #[\Deprecated] attribute on the method to signal its either empty or that you moved the logic elsewhere, typically to the "__serialize()" method.', get_debug_type($token));
+
+            return $token;
+        }
+
+        return null;
     }
 }
