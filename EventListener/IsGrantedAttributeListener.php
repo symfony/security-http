@@ -55,8 +55,6 @@ class IsGrantedAttributeListener implements EventSubscriberInterface
                     foreach ($subjectRef as $refKey => $ref) {
                         $subject[\is_string($refKey) ? $refKey : (string) $ref] = $this->getIsGrantedSubject($ref, $request, $arguments);
                     }
-                } elseif ($subjectRef instanceof \Closure) {
-                    $subject = $subjectRef($arguments, $request);
                 } else {
                     $subject = $this->getIsGrantedSubject($subjectRef, $request, $arguments);
                 }
@@ -85,8 +83,12 @@ class IsGrantedAttributeListener implements EventSubscriberInterface
         return [KernelEvents::CONTROLLER_ARGUMENTS => ['onKernelControllerArguments', 20]];
     }
 
-    private function getIsGrantedSubject(string|Expression $subjectRef, Request $request, array $arguments): mixed
+    private function getIsGrantedSubject(string|Expression|\Closure $subjectRef, Request $request, array $arguments): mixed
     {
+        if ($subjectRef instanceof \Closure) {
+            return $subjectRef($arguments, $request);
+        }
+
         if ($subjectRef instanceof Expression) {
             $this->expressionLanguage ??= new ExpressionLanguage();
 

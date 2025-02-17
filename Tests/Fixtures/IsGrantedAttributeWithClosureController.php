@@ -12,14 +12,15 @@
 namespace Symfony\Component\Security\Http\Tests\Fixtures;
 
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Component\Security\Http\Attribute\IsGrantedContext;
 
-#[IsGranted(static function ($token, $accessDecisionManager, ...$vars) {
-    return $accessDecisionManager->decide($token, ['ROLE_USER']);
+#[IsGranted(static function (IsGrantedContext $context) {
+    return $context->isGranted('ROLE_USER');
 })]
-class IsGrantedAttributeWithCallableController
+class IsGrantedAttributeWithClosureController
 {
-    #[IsGranted(static function ($token, $accessDecisionManager, ...$vars) {
-        return $accessDecisionManager->decide($token, ['ROLE_ADMIN']);
+    #[IsGranted(static function (IsGrantedContext $context) {
+        return $context->isGranted('ROLE_ADMIN');
     })]
     public function foo()
     {

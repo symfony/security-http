@@ -16,16 +16,20 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\ControllerArgumentsEvent;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
+use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorage;
+use Symfony\Component\Security\Core\Authorization\AccessDecisionManager;
+use Symfony\Component\Security\Core\Authorization\AuthorizationChecker;
 use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
+use Symfony\Component\Security\Core\Authorization\Voter\ClosureVoter;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 use Symfony\Component\Security\Http\EventListener\IsGrantedAttributeListener;
-use Symfony\Component\Security\Http\Tests\Fixtures\IsGrantedAttributeMethodsWithCallableController;
-use Symfony\Component\Security\Http\Tests\Fixtures\IsGrantedAttributeWithCallableController;
+use Symfony\Component\Security\Http\Tests\Fixtures\IsGrantedAttributeMethodsWithClosureController;
+use Symfony\Component\Security\Http\Tests\Fixtures\IsGrantedAttributeWithClosureController;
 
 /**
  * @requires PHP 8.5
  */
-class IsGrantedAttributeWithCallableListenerTest extends TestCase
+class IsGrantedAttributeWithClosureListenerTest extends TestCase
 {
     public function testAttribute()
     {
@@ -36,7 +40,7 @@ class IsGrantedAttributeWithCallableListenerTest extends TestCase
 
         $event = new ControllerArgumentsEvent(
             $this->createMock(HttpKernelInterface::class),
-            [new IsGrantedAttributeWithCallableController(), 'foo'],
+            [new IsGrantedAttributeWithClosureController(), 'foo'],
             [],
             new Request(),
             null
@@ -52,7 +56,7 @@ class IsGrantedAttributeWithCallableListenerTest extends TestCase
 
         $event = new ControllerArgumentsEvent(
             $this->createMock(HttpKernelInterface::class),
-            [new IsGrantedAttributeWithCallableController(), 'bar'],
+            [new IsGrantedAttributeWithClosureController(), 'bar'],
             [],
             new Request(),
             null
@@ -70,7 +74,7 @@ class IsGrantedAttributeWithCallableListenerTest extends TestCase
 
         $event = new ControllerArgumentsEvent(
             $this->createMock(HttpKernelInterface::class),
-            [new IsGrantedAttributeMethodsWithCallableController(), 'noAttribute'],
+            [new IsGrantedAttributeMethodsWithClosureController(), 'noAttribute'],
             [],
             new Request(),
             null
@@ -90,7 +94,7 @@ class IsGrantedAttributeWithCallableListenerTest extends TestCase
 
         $event = new ControllerArgumentsEvent(
             $this->createMock(HttpKernelInterface::class),
-            [new IsGrantedAttributeMethodsWithCallableController(), 'admin'],
+            [new IsGrantedAttributeMethodsWithClosureController(), 'admin'],
             [],
             new Request(),
             null
@@ -111,7 +115,7 @@ class IsGrantedAttributeWithCallableListenerTest extends TestCase
 
         $event = new ControllerArgumentsEvent(
             $this->createMock(HttpKernelInterface::class),
-            [new IsGrantedAttributeMethodsWithCallableController(), 'withSubject'],
+            [new IsGrantedAttributeMethodsWithClosureController(), 'withSubject'],
             ['arg1Value', 'arg2Value'],
             new Request(),
             null
@@ -136,7 +140,7 @@ class IsGrantedAttributeWithCallableListenerTest extends TestCase
 
         $event = new ControllerArgumentsEvent(
             $this->createMock(HttpKernelInterface::class),
-            [new IsGrantedAttributeMethodsWithCallableController(), 'withSubjectArray'],
+            [new IsGrantedAttributeMethodsWithClosureController(), 'withSubjectArray'],
             ['arg1Value', 'arg2Value'],
             new Request(),
             null
@@ -157,7 +161,7 @@ class IsGrantedAttributeWithCallableListenerTest extends TestCase
 
         $event = new ControllerArgumentsEvent(
             $this->createMock(HttpKernelInterface::class),
-            [new IsGrantedAttributeMethodsWithCallableController(), 'withSubject'],
+            [new IsGrantedAttributeMethodsWithClosureController(), 'withSubject'],
             ['arg1Value', null],
             new Request(),
             null
@@ -180,7 +184,7 @@ class IsGrantedAttributeWithCallableListenerTest extends TestCase
 
         $event = new ControllerArgumentsEvent(
             $this->createMock(HttpKernelInterface::class),
-            [new IsGrantedAttributeMethodsWithCallableController(), 'withSubjectArray'],
+            [new IsGrantedAttributeMethodsWithClosureController(), 'withSubjectArray'],
             ['arg1Value', null],
             new Request(),
             null
@@ -196,7 +200,7 @@ class IsGrantedAttributeWithCallableListenerTest extends TestCase
 
         $event = new ControllerArgumentsEvent(
             $this->createMock(HttpKernelInterface::class),
-            [new IsGrantedAttributeMethodsWithCallableController(), 'withMissingSubject'],
+            [new IsGrantedAttributeMethodsWithClosureController(), 'withMissingSubject'],
             [],
             new Request(),
             null
@@ -214,10 +218,9 @@ class IsGrantedAttributeWithCallableListenerTest extends TestCase
      */
     public function testAccessDeniedMessages(string|array|null $subject, string $method, int $numOfArguments, string $expectedMessage)
     {
-        $authChecker = $this->createMock(AuthorizationCheckerInterface::class);
-        $authChecker->expects($this->any())
-            ->method('isGranted')
-            ->willReturn(false);
+        $authChecker = new AuthorizationChecker(new TokenStorage(), new AccessDecisionManager((function () use (&$authChecker) {
+            yield new ClosureVoter($authChecker);
+        })()));
 
         // avoid the error of the subject not being found in the request attributes
         $arguments = array_fill(0, $numOfArguments, 'bar');
@@ -225,7 +228,7 @@ class IsGrantedAttributeWithCallableListenerTest extends TestCase
 
         $event = new ControllerArgumentsEvent(
             $this->createMock(HttpKernelInterface::class),
-            [new IsGrantedAttributeMethodsWithCallableController(), $method],
+            [new IsGrantedAttributeMethodsWithClosureController(), $method],
             $arguments,
             new Request(),
             null
@@ -236,7 +239,7 @@ class IsGrantedAttributeWithCallableListenerTest extends TestCase
             $this->fail();
         } catch (AccessDeniedException $e) {
             $this->assertSame($expectedMessage, $e->getMessage());
-            $this->assertIsCallable($e->getAttributes()[0]);
+            $this->assertInstanceOf(\Closure::class, $e->getAttributes()[0]);
             if (null !== $subject) {
                 $this->assertSame($subject, $e->getSubject());
             } else {
@@ -247,11 +250,11 @@ class IsGrantedAttributeWithCallableListenerTest extends TestCase
 
     public static function getAccessDeniedMessageTests()
     {
-        yield [null, 'admin', 0, 'Access Denied by #[IsGranted({closure:Symfony\Component\Security\Http\Tests\Fixtures\IsGrantedAttributeMethodsWithCallableController::admin():23})] on controller'];
-        yield ['bar', 'withSubject', 2, 'Access Denied by #[IsGranted({closure:Symfony\Component\Security\Http\Tests\Fixtures\IsGrantedAttributeMethodsWithCallableController::withSubject():30}, "arg2Name")] on controller'];
-        yield [['arg1Name' => 'bar', 'arg2Name' => 'bar'], 'withSubjectArray', 2, 'Access Denied by #[IsGranted({closure:Symfony\Component\Security\Http\Tests\Fixtures\IsGrantedAttributeMethodsWithCallableController::withSubjectArray():37}, ["arg1Name", "arg2Name"])] on controller'];
-        yield ['bar', 'withCallableAsSubject', 1, 'Access Denied by #[IsGranted({closure:Symfony\Component\Security\Http\Tests\Fixtures\IsGrantedAttributeMethodsWithCallableController::withCallableAsSubject():73}, {closure:Symfony\Component\Security\Http\Tests\Fixtures\IsGrantedAttributeMethodsWithCallableController::withCallableAsSubject():76})] on controller'];
-        yield [['author' => 'bar', 'alias' => 'bar'], 'withNestArgsInSubject', 2, 'Access Denied by #[IsGranted({closure:Symfony\Component\Security\Http\Tests\Fixtures\IsGrantedAttributeMethodsWithCallableController::withNestArgsInSubject():84}, {closure:Symfony\Component\Security\Http\Tests\Fixtures\IsGrantedAttributeMethodsWithCallableController::withNestArgsInSubject():86})] on controller'];
+        yield [null, 'admin', 0, 'Access Denied. Closure {closure:Symfony\Component\Security\Http\Tests\Fixtures\IsGrantedAttributeMethodsWithClosureController::admin():23} returned false.'];
+        yield ['bar', 'withSubject', 2, 'Access Denied. Closure {closure:Symfony\Component\Security\Http\Tests\Fixtures\IsGrantedAttributeMethodsWithClosureController::withSubject():30} returned false.'];
+        yield [['arg1Name' => 'bar', 'arg2Name' => 'bar'], 'withSubjectArray', 2, 'Access Denied. Closure {closure:Symfony\Component\Security\Http\Tests\Fixtures\IsGrantedAttributeMethodsWithClosureController::withSubjectArray():37} returned false.'];
+        yield ['bar', 'withClosureAsSubject', 1, 'Access Denied. Closure {closure:Symfony\Component\Security\Http\Tests\Fixtures\IsGrantedAttributeMethodsWithClosureController::withClosureAsSubject():73} returned false.'];
+        yield [['author' => 'bar', 'alias' => 'bar'], 'withNestArgsInSubject', 2, 'Access Denied. Closure {closure:Symfony\Component\Security\Http\Tests\Fixtures\IsGrantedAttributeMethodsWithClosureController::withNestArgsInSubject():85} returned false.'];
     }
 
     public function testNotFoundHttpException()
@@ -263,7 +266,7 @@ class IsGrantedAttributeWithCallableListenerTest extends TestCase
 
         $event = new ControllerArgumentsEvent(
             $this->createMock(HttpKernelInterface::class),
-            [new IsGrantedAttributeMethodsWithCallableController(), 'notFound'],
+            [new IsGrantedAttributeMethodsWithClosureController(), 'notFound'],
             [],
             new Request(),
             null
@@ -277,7 +280,7 @@ class IsGrantedAttributeWithCallableListenerTest extends TestCase
         $listener->onKernelControllerArguments($event);
     }
 
-    public function testIsGrantedWithCallableAsSubject()
+    public function testIsGrantedWithClosureAsSubject()
     {
         $request = new Request();
 
@@ -289,7 +292,7 @@ class IsGrantedAttributeWithCallableListenerTest extends TestCase
 
         $event = new ControllerArgumentsEvent(
             $this->createMock(HttpKernelInterface::class),
-            [new IsGrantedAttributeMethodsWithCallableController(), 'withCallableAsSubject'],
+            [new IsGrantedAttributeMethodsWithClosureController(), 'withClosureAsSubject'],
             ['postVal'],
             $request,
             null
@@ -311,7 +314,7 @@ class IsGrantedAttributeWithCallableListenerTest extends TestCase
 
         $event = new ControllerArgumentsEvent(
             $this->createMock(HttpKernelInterface::class),
-            [new IsGrantedAttributeMethodsWithCallableController(), 'withNestArgsInSubject'],
+            [new IsGrantedAttributeMethodsWithClosureController(), 'withNestArgsInSubject'],
             ['postVal', 'bar'],
             $request,
             null
@@ -330,7 +333,7 @@ class IsGrantedAttributeWithCallableListenerTest extends TestCase
 
         $event = new ControllerArgumentsEvent(
             $this->createMock(HttpKernelInterface::class),
-            [new IsGrantedAttributeMethodsWithCallableController(), 'exceptionCodeInHttpException'],
+            [new IsGrantedAttributeMethodsWithClosureController(), 'exceptionCodeInHttpException'],
             [],
             new Request(),
             null
@@ -354,7 +357,7 @@ class IsGrantedAttributeWithCallableListenerTest extends TestCase
 
         $event = new ControllerArgumentsEvent(
             $this->createMock(HttpKernelInterface::class),
-            [new IsGrantedAttributeMethodsWithCallableController(), 'exceptionCodeInAccessDeniedException'],
+            [new IsGrantedAttributeMethodsWithClosureController(), 'exceptionCodeInAccessDeniedException'],
             [],
             new Request(),
             null

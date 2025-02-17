@@ -13,9 +13,6 @@ namespace Symfony\Component\Security\Http\Attribute;
 
 use Symfony\Component\ExpressionLanguage\Expression;
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\Security\Core\Authentication\AuthenticationTrustResolverInterface;
-use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
-use Symfony\Component\Security\Core\Authorization\AccessDecisionManagerInterface;
 
 /**
  * Checks if user has permission to access to some resource using security roles and voters.
@@ -28,8 +25,8 @@ use Symfony\Component\Security\Core\Authorization\AccessDecisionManagerInterface
 final class IsGranted
 {
     /**
-     * @param string|Expression|(\Closure(TokenInterface $token, mixed $subject, AccessDecisionManagerInterface $accessDecisionManager, AuthenticationTrustResolverInterface $trustResolver): bool) $attribute The attribute that will be checked against a given authentication token and optional subject
-     * @param array|string|Expression|(\Closure(array<string, mixed>, Request): mixed)|null $subject An optional subject - e.g. the current object being voted on
+     * @param string|Expression|\Closure(IsGrantedContext, mixed $subject):bool $attribute The attribute that will be checked against a given authentication token and optional subject
+     * @param array|string|Expression|\Closure(array<string,mixed>, Request):mixed|null $subject An optional subject - e.g. the current object being voted on
      * @param string|null $message       A custom message when access is not granted
      * @param int|null    $statusCode    If set, will throw HttpKernel's HttpException with the given $statusCode; if null, Security\Core's AccessDeniedException will be used
      * @param int|null    $exceptionCode If set, will add the exception code to thrown exception
