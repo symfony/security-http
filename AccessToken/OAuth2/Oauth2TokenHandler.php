@@ -18,7 +18,6 @@ use Symfony\Component\Security\Core\User\OAuth2User;
 use Symfony\Component\Security\Http\AccessToken\AccessTokenHandlerInterface;
 use Symfony\Component\Security\Http\Authenticator\Passport\Badge\UserBadge;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
-
 use function Symfony\Component\String\u;
 
 /**

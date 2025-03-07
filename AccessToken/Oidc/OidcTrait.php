@@ -12,7 +12,6 @@
 namespace Symfony\Component\Security\Http\AccessToken\Oidc;
 
 use Symfony\Component\Security\Core\User\OidcUser;
-
 use function Symfony\Component\String\u;
 
 /**

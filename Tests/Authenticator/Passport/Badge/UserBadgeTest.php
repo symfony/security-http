@@ -17,7 +17,6 @@ use Symfony\Component\Security\Core\Exception\UserNotFoundException;
 use Symfony\Component\Security\Http\Authenticator\Passport\Badge\UserBadge;
 use Symfony\Component\String\Slugger\AsciiSlugger;
 use Symfony\Component\String\UnicodeString;
-
 use function Symfony\Component\String\u;
 
 class UserBadgeTest extends TestCase
