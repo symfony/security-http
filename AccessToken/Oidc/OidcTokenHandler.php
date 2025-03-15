@@ -71,14 +71,14 @@ final class OidcTokenHandler implements AccessTokenHandlerInterface
         }
     }
 
-    public function enabledJweSupport(JWKSet $decryptionKeyset, AlgorithmManager $decryptionAlgorithms, bool $enforceEncryption): void
+    public function enableJweSupport(JWKSet $decryptionKeyset, AlgorithmManager $decryptionAlgorithms, bool $enforceEncryption): void
     {
         $this->decryptionKeyset = $decryptionKeyset;
         $this->decryptionAlgorithms = $decryptionAlgorithms;
         $this->enforceEncryption = $enforceEncryption;
     }
 
-    public function enabledDiscovery(CacheInterface $cache, HttpClientInterface $client, string $oidcConfigurationCacheKey, string $oidcJWKSetCacheKey): void
+    public function enableDiscovery(CacheInterface $cache, HttpClientInterface $client, string $oidcConfigurationCacheKey, string $oidcJWKSetCacheKey): void
     {
         $this->discoveryCache = $cache;
         $this->discoveryClient = $client;

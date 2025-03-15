@@ -37,7 +37,7 @@ final class OidcUserInfoTokenHandler implements AccessTokenHandlerInterface
     ) {
     }
 
-    public function enabledDiscovery(CacheInterface $cache, string $oidcConfigurationCacheKey): void
+    public function enableDiscovery(CacheInterface $cache, string $oidcConfigurationCacheKey): void
     {
         $this->discoveryCache = $cache;
         $this->oidcConfigurationCacheKey = $oidcConfigurationCacheKey;
