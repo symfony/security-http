@@ -232,7 +232,7 @@ class IsGrantedAttributeListenerTest extends TestCase
 
                 protected function voteOnAttribute(string $attribute, mixed $subject, TokenInterface $token, ?Vote $vote = null): bool
                 {
-                    $vote->reasons[] = 'Because I can 😈.';
+                    $vote?->addReason('Because I can 😈.');
 
                     return false;
                 }
