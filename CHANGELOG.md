@@ -1,6 +1,12 @@
 CHANGELOG
 =========
 
+7.4
+---
+
+ * Deprecate callable firewall listeners, extend `AbstractListener` or implement `FirewallListenerInterface` instead
+ * Deprecate `AbstractListener::__invoke`
+
 7.3
 ---
 
