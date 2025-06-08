@@ -205,32 +205,6 @@ class AuthenticatorManagerBCTest extends TestCase
     }
 
     /**
-     * @dataProvider provideEraseCredentialsData
-     *
-     * @group legacy
-     */
-    public function testEraseCredentials($eraseCredentials)
-    {
-        $authenticator = $this->createAuthenticator();
-        $this->request->attributes->set('_security_authenticators', [$authenticator]);
-
-        $authenticator->expects($this->any())->method('authenticate')->willReturn(new SelfValidatingPassport(new UserBadge('wouter', fn () => $this->user)));
-
-        $authenticator->expects($this->any())->method('createToken')->willReturn($this->token);
-
-        $this->token->expects($eraseCredentials ? $this->once() : $this->never())->method('eraseCredentials');
-
-        $manager = $this->createManager([$authenticator], 'main', $eraseCredentials, hideUserNotFoundExceptions: true);
-        $manager->authenticateRequest($this->request);
-    }
-
-    public static function provideEraseCredentialsData()
-    {
-        yield [true];
-        yield [false];
-    }
-
-    /**
      * @group legacy
      */
     public function testAuthenticateRequestCanModifyTokenFromEvent()
