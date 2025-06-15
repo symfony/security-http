@@ -110,7 +110,11 @@ class Firewall implements EventSubscriberInterface
     protected function callListeners(RequestEvent $event, iterable $listeners): void
     {
         foreach ($listeners as $listener) {
-            $listener($event);
+            if (!$listener instanceof FirewallListenerInterface) {
+                $listener($event);
+            } elseif (false !== $listener->supports($event->getRequest())) {
+                $listener->authenticate($event);
+            }
 
             if ($event->hasResponse()) {
                 break;
