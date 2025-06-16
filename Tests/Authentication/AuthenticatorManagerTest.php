@@ -187,45 +187,6 @@ class AuthenticatorManagerTest extends TestCase
         $manager->authenticateRequest($this->request);
     }
 
-    /**
-     * @group legacy
-     *
-     * @dataProvider provideEraseCredentialsData
-     */
-    public function testEraseCredentials($eraseCredentials)
-    {
-        $authenticator = $this->createAuthenticator();
-        $this->request->attributes->set('_security_authenticators', [$authenticator]);
-
-        $authenticator->expects($this->any())->method('authenticate')->willReturn(new SelfValidatingPassport(new UserBadge('wouter', fn () => $this->user)));
-
-        $token = new class extends AbstractToken {
-            public $erased = false;
-
-            public function eraseCredentials(): void
-            {
-                $this->erased = true;
-            }
-        };
-
-        $authenticator->expects($this->any())->method('createToken')->willReturn($token);
-
-        if ($eraseCredentials) {
-            $this->expectUserDeprecationMessage(\sprintf('Since symfony/security-http 7.3: Implementing "%s@anonymous::eraseCredentials()" is deprecated since Symfony 7.3; add the #[\Deprecated] attribute on the method to signal its either empty or that you moved the logic elsewhere, typically to the "__serialize()" method.', AbstractToken::class));
-        }
-
-        $manager = $this->createManager([$authenticator], 'main', $eraseCredentials, exposeSecurityErrors: ExposeSecurityLevel::None);
-        $manager->authenticateRequest($this->request);
-
-        $this->assertSame($eraseCredentials, $token->erased);
-    }
-
-    public static function provideEraseCredentialsData()
-    {
-        yield [true];
-        yield [false];
-    }
-
     public function testAuthenticateRequestCanModifyTokenFromEvent()
     {
         $authenticator = $this->createAuthenticator();
