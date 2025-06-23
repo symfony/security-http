@@ -160,33 +160,4 @@ class FirewallTest extends TestCase
 
         $this->assertSame(['firewallListener', 'callableFirewallListener'], $calledListeners);
     }
-
-    /**
-     * @group legacy
-     */
-    public function testCallableListenersAreCalled()
-    {
-        $calledListeners = [];
-
-        $callableListener = static function() use(&$calledListeners) { $calledListeners[] = 'callableListener'; };
-
-        $request = $this->createMock(Request::class);
-
-        $map = $this->createMock(FirewallMapInterface::class);
-        $map
-            ->expects($this->once())
-            ->method('getListeners')
-            ->with($this->equalTo($request))
-            ->willReturn([[$callableListener], null, null])
-        ;
-
-        $event = new RequestEvent($this->createMock(HttpKernelInterface::class), $request, HttpKernelInterface::MAIN_REQUEST);
-
-        $firewall = new Firewall($map, $this->createMock(EventDispatcherInterface::class));
-
-        $this->expectUserDeprecationMessage('Since symfony/security-http 7.4: Using a callable as firewall listener is deprecated, extend "Symfony\Component\Security\Http\Firewall\AbstractListener" or implement "Symfony\Component\Security\Http\Firewall\FirewallListenerInterface" instead.');
-        $firewall->onKernelRequest($event);
-
-        $this->assertSame(['callableListener'], $calledListeners);
-    }
 }

@@ -16,9 +16,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\FinishRequestEvent;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
-use Symfony\Component\Security\Http\Firewall\AbstractListener;
 use Symfony\Component\Security\Http\Firewall\ExceptionListener;
-use Symfony\Component\Security\Http\Firewall\FirewallListenerInterface;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 /**
@@ -66,14 +64,12 @@ class Firewall implements EventSubscriberInterface
         // Authentication listeners are pre-sorted by SortFirewallListenersPass
         $authenticationListeners = function () use ($authenticationListeners, $logoutListener) {
             if (null !== $logoutListener) {
-                $logoutListenerPriority = $this->getListenerPriority($logoutListener);
+                $logoutListenerPriority = $logoutListener::getPriority();
             }
 
             foreach ($authenticationListeners as $listener) {
-                $listenerPriority = $this->getListenerPriority($listener);
-
                 // Yielding the LogoutListener at the correct position
-                if (null !== $logoutListener && $listenerPriority < $logoutListenerPriority) {
+                if (null !== $logoutListener && $listener::getPriority() < $logoutListenerPriority) {
                     yield $logoutListener;
                     $logoutListener = null;
                 }
@@ -111,22 +107,15 @@ class Firewall implements EventSubscriberInterface
     protected function callListeners(RequestEvent $event, iterable $listeners): void
     {
         foreach ($listeners as $listener) {
-            if (!$listener instanceof FirewallListenerInterface) {
-                trigger_deprecation('symfony/security-http', '7.4', 'Using a callable as firewall listener is deprecated, extend "%s" or implement "%s" instead.', AbstractListener::class, FirewallListenerInterface::class);
-            
-                $listener($event);
-            } elseif (false !== $listener->supports($event->getRequest())) {
-                $listener->authenticate($event);
+            if (false === $listener->supports($event->getRequest())) {
+                continue;
             }
+
+            $listener->authenticate($event);
 
             if ($event->hasResponse()) {
                 break;
             }
         }
-    }
-
-    private function getListenerPriority(object $listener): int
-    {
-        return $listener instanceof FirewallListenerInterface ? $listener->getPriority() : 0;
     }
 }
