@@ -179,7 +179,7 @@ class ContextListenerTest extends TestCase
             ->with(null);
 
         $listener = new ContextListener($tokenStorage, [], 'key123');
-        $listener(new RequestEvent($this->createMock(HttpKernelInterface::class), $request, HttpKernelInterface::MAIN_REQUEST));
+        $listener->authenticate(new RequestEvent($this->createMock(HttpKernelInterface::class), $request, HttpKernelInterface::MAIN_REQUEST));
     }
 
     public static function provideInvalidToken()
@@ -203,7 +203,7 @@ class ContextListenerTest extends TestCase
             ->method('addListener')
             ->with(KernelEvents::RESPONSE, $listener->onKernelResponse(...));
 
-        $listener(new RequestEvent($this->createMock(HttpKernelInterface::class), new Request(), HttpKernelInterface::MAIN_REQUEST));
+        $listener->authenticate(new RequestEvent($this->createMock(HttpKernelInterface::class), new Request(), HttpKernelInterface::MAIN_REQUEST));
     }
 
     public function testOnKernelResponseListenerRemovesItself()
@@ -236,7 +236,7 @@ class ContextListenerTest extends TestCase
         $tokenStorage->expects($this->once())->method('setToken')->with(null);
 
         $listener = new ContextListener($tokenStorage, [], 'key123');
-        $listener(new RequestEvent($this->createMock(HttpKernelInterface::class), $request, HttpKernelInterface::MAIN_REQUEST));
+        $listener->authenticate(new RequestEvent($this->createMock(HttpKernelInterface::class), $request, HttpKernelInterface::MAIN_REQUEST));
     }
 
     public function testIfTokenIsDeauthenticated()
@@ -262,7 +262,7 @@ class ContextListenerTest extends TestCase
         $request->cookies->set('MOCKSESSID', true);
 
         $listener = new ContextListener($tokenStorage, [new NotSupportingUserProvider(true), new NotSupportingUserProvider(false), new SupportingUserProvider($refreshedUser)], 'context_key');
-        $listener(new RequestEvent($this->createMock(HttpKernelInterface::class), $request, HttpKernelInterface::MAIN_REQUEST));
+        $listener->authenticate(new RequestEvent($this->createMock(HttpKernelInterface::class), $request, HttpKernelInterface::MAIN_REQUEST));
 
         $this->assertInstanceOf(CustomToken::class, $tokenStorage->getToken());
         $this->assertSame($refreshedUser, $tokenStorage->getToken()->getUser());
@@ -270,7 +270,6 @@ class ContextListenerTest extends TestCase
 
     public function testIfTokenIsNotDeauthenticated()
     {
-        $tokenStorage = new TokenStorage();
         $badRefreshedUser = new InMemoryUser('foobar', 'baz');
         $goodRefreshedUser = new InMemoryUser('foobar', 'bar');
         $tokenStorage = $this->handleEventWithPreviousSession([new SupportingUserProvider($badRefreshedUser), new SupportingUserProvider($goodRefreshedUser)], $goodRefreshedUser);
@@ -326,7 +325,7 @@ class ContextListenerTest extends TestCase
 
         $tokenStorage = new TokenStorage();
         $listener = new ContextListener($tokenStorage, [], 'context_key', null, null, null, $tokenStorage->getToken(...));
-        $listener(new RequestEvent($this->createMock(HttpKernelInterface::class), $request, HttpKernelInterface::MAIN_REQUEST));
+        $listener->authenticate(new RequestEvent($this->createMock(HttpKernelInterface::class), $request, HttpKernelInterface::MAIN_REQUEST));
 
         $this->assertSame($usageIndex, $session->getUsageIndex());
     }
@@ -348,7 +347,7 @@ class ContextListenerTest extends TestCase
         $tokenStorage = new TokenStorage();
 
         $listener = new ContextListener($tokenStorage, [], 'context_key', null, null, null, $tokenStorage->getToken(...));
-        $listener(new RequestEvent($this->createMock(HttpKernelInterface::class), $request, HttpKernelInterface::MAIN_REQUEST));
+        $listener->authenticate(new RequestEvent($this->createMock(HttpKernelInterface::class), $request, HttpKernelInterface::MAIN_REQUEST));
 
         $listener->onKernelResponse(new ResponseEvent($this->createMock(HttpKernelInterface::class), $request, HttpKernelInterface::MAIN_REQUEST, new Response()));
     }
@@ -370,7 +369,7 @@ class ContextListenerTest extends TestCase
         $listener = new ContextListener($tokenStorage, [], 'session', null, $dispatcher, null, $tokenStorage->getToken(...));
         $this->assertSame([], $dispatcher->getListeners());
 
-        $listener(new RequestEvent($httpKernel, $request, HttpKernelInterface::MAIN_REQUEST));
+        $listener->authenticate(new RequestEvent($httpKernel, $request, HttpKernelInterface::MAIN_REQUEST));
         $this->assertNotEmpty($dispatcher->getListeners());
 
         $listener->onKernelResponse(new ResponseEvent($httpKernel, $request, HttpKernelInterface::MAIN_REQUEST, new Response()));
@@ -468,7 +467,7 @@ class ContextListenerTest extends TestCase
 
         $listener = new ContextListener($tokenStorage, $userProviders, 'context_key', null, null, null, $sessionTrackerEnabler);
 
-        $listener(new RequestEvent($this->createMock(HttpKernelInterface::class), $request, HttpKernelInterface::MAIN_REQUEST));
+        $listener->authenticate(new RequestEvent($this->createMock(HttpKernelInterface::class), $request, HttpKernelInterface::MAIN_REQUEST));
 
         if (null !== $user) {
             ++$usageIndex;
