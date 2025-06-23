@@ -125,7 +125,7 @@ class Firewall implements EventSubscriberInterface
         foreach ($listeners as $listener) {
             if (!$listener instanceof FirewallListenerInterface) {
                 trigger_deprecation('symfony/security-http', '7.4', 'Using a callable as firewall listener is deprecated, extend "%s" or implement "%s" instead.', AbstractListener::class, FirewallListenerInterface::class);
-            
+
                 $listener($event);
             } elseif (false !== $listener->supports($event->getRequest())) {
                 $listener->authenticate($event);
