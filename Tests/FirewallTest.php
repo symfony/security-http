@@ -112,7 +112,9 @@ class FirewallTest extends TestCase
         $calledListeners = [];
 
         $firewallListener = new class($calledListeners) implements FirewallListenerInterface {
-            public function __construct(private array &$calledListeners) {}
+            public function __construct(private array &$calledListeners)
+            {
+            }
 
             public function supports(Request $request): ?bool
             {
@@ -130,7 +132,9 @@ class FirewallTest extends TestCase
             }
         };
         $callableFirewallListener = new class($calledListeners) extends AbstractListener {
-            public function __construct(private array &$calledListeners) {}
+            public function __construct(private array &$calledListeners)
+            {
+            }
 
             public function supports(Request $request): ?bool
             {
