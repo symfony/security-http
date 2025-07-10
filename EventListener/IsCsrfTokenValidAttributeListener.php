@@ -45,7 +45,7 @@ final class IsCsrfTokenValidAttributeListener implements EventSubscriberInterfac
 
         foreach ($attributes as $attribute) {
             $id = $this->getTokenId($attribute->id, $request, $arguments);
-            $methods = \array_map('strtoupper', (array) $attribute->methods);
+            $methods = array_map('strtoupper', (array) $attribute->methods);
 
             if ($methods && !\in_array($request->getMethod(), $methods, true)) {
                 continue;

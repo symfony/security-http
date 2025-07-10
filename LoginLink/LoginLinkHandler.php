@@ -84,14 +84,14 @@ final class LoginLinkHandler implements LoginLinkHandlerInterface
         if (!$hash = $request->get('hash')) {
             throw new InvalidLoginLinkException('Missing "hash" parameter.');
         }
-        if (!is_string($hash)) {
+        if (!\is_string($hash)) {
             throw new InvalidLoginLinkException('Invalid "hash" parameter.');
         }
 
         if (!$expires = $request->get('expires')) {
             throw new InvalidLoginLinkException('Missing "expires" parameter.');
         }
-        if (preg_match('/^\d+$/', $expires) !== 1) {
+        if (!preg_match('/^\d+$/', $expires)) {
             throw new InvalidLoginLinkException('Invalid "expires" parameter.');
         }
 
