@@ -147,7 +147,7 @@ class FormLoginAuthenticatorTest extends TestCase
      */
     public function testHandleNonStringPasswordWithToString(bool $postOnly)
     {
-        $passwordObject = new class() {
+        $passwordObject = new class {
             public function __toString()
             {
                 return 's$cr$t';

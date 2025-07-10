@@ -149,10 +149,10 @@ class JsonLoginAuthenticator implements InteractiveAuthenticatorInterface
             $credentials['username'] = $this->propertyAccessor->getValue($data, $this->options['username_path']);
 
             if (!\is_string($credentials['username'])) {
-                throw new BadRequestHttpException(sprintf('The key "%s" must be a string.', $this->options['username_path']));
+                throw new BadRequestHttpException(\sprintf('The key "%s" must be a string.', $this->options['username_path']));
             }
         } catch (AccessException $e) {
-            throw new BadRequestHttpException(sprintf('The key "%s" must be provided.', $this->options['username_path']), $e);
+            throw new BadRequestHttpException(\sprintf('The key "%s" must be provided.', $this->options['username_path']), $e);
         }
 
         try {
@@ -160,10 +160,10 @@ class JsonLoginAuthenticator implements InteractiveAuthenticatorInterface
             $this->propertyAccessor->setValue($data, $this->options['password_path'], null);
 
             if (!\is_string($credentials['password'])) {
-                throw new BadRequestHttpException(sprintf('The key "%s" must be a string.', $this->options['password_path']));
+                throw new BadRequestHttpException(\sprintf('The key "%s" must be a string.', $this->options['password_path']));
             }
         } catch (AccessException $e) {
-            throw new BadRequestHttpException(sprintf('The key "%s" must be provided.', $this->options['password_path']), $e);
+            throw new BadRequestHttpException(\sprintf('The key "%s" must be provided.', $this->options['password_path']), $e);
         }
 
         if ('' === $credentials['username'] || '' === $credentials['password']) {
