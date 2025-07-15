@@ -35,8 +35,7 @@ final class IsCsrfTokenValidAttributeListener implements EventSubscriberInterfac
 
     public function onKernelControllerArguments(ControllerArgumentsEvent $event): void
     {
-        /** @var IsCsrfTokenValid[] $attributes */
-        if (!\is_array($attributes = $event->getAttributes()[IsCsrfTokenValid::class] ?? null)) {
+        if (!$attributes = $event->getAttributes(IsCsrfTokenValid::class)) {
             return;
         }
 
