@@ -13,9 +13,7 @@ namespace Symfony\Component\Security\Http\AccessToken\Oidc;
 
 use Jose\Component\Checker;
 use Jose\Component\Checker\ClaimCheckerManager;
-use Jose\Component\Core\Algorithm;
 use Jose\Component\Core\AlgorithmManager;
-use Jose\Component\Core\JWK;
 use Jose\Component\Core\JWKSet;
 use Jose\Component\Encryption\JWEDecrypter;
 use Jose\Component\Encryption\JWETokenSupport;
@@ -53,22 +51,14 @@ final class OidcTokenHandler implements AccessTokenHandlerInterface
     private ?string $oidcJWKSetCacheKey = null;
 
     public function __construct(
-        private Algorithm|AlgorithmManager $signatureAlgorithm,
-        private JWK|JWKSet|null $signatureKeyset,
+        private AlgorithmManager $signatureAlgorithm,
+        private ?JWKSet $signatureKeyset,
         private string $audience,
         private array $issuers,
         private string $claim = 'sub',
         private ?LoggerInterface $logger = null,
         private ClockInterface $clock = new Clock(),
     ) {
-        if ($signatureAlgorithm instanceof Algorithm) {
-            trigger_deprecation('symfony/security-http', '7.1', 'First argument must be instance of %s, %s given.', AlgorithmManager::class, Algorithm::class);
-            $this->signatureAlgorithm = new AlgorithmManager([$signatureAlgorithm]);
-        }
-        if ($signatureKeyset instanceof JWK) {
-            trigger_deprecation('symfony/security-http', '7.1', 'Second argument must be instance of %s, %s given.', JWKSet::class, JWK::class);
-            $this->signatureKeyset = new JWKSet([$signatureKeyset]);
-        }
     }
 
     public function enableJweSupport(JWKSet $decryptionKeyset, AlgorithmManager $decryptionAlgorithms, bool $enforceEncryption): void

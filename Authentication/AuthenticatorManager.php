@@ -47,8 +47,6 @@ use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
  */
 class AuthenticatorManager implements AuthenticatorManagerInterface, UserAuthenticatorInterface
 {
-    private ExposeSecurityLevel $exposeSecurityErrors;
-
     /**
      * @param iterable<mixed, AuthenticatorInterface> $authenticators
      */
@@ -59,17 +57,9 @@ class AuthenticatorManager implements AuthenticatorManagerInterface, UserAuthent
         private string $firewallName,
         private ?LoggerInterface $logger = null,
         private bool $eraseCredentials = true,
-        ExposeSecurityLevel|bool $exposeSecurityErrors = ExposeSecurityLevel::None,
+        private ExposeSecurityLevel $exposeSecurityErrors = ExposeSecurityLevel::None,
         private array $requiredBadges = [],
     ) {
-        if (\is_bool($exposeSecurityErrors)) {
-            trigger_deprecation('symfony/security-http', '7.3', 'Passing a boolean as "exposeSecurityErrors" parameter is deprecated, use %s value instead.', ExposeSecurityLevel::class);
-
-            // The old parameter had an inverted meaning ($hideUserNotFoundExceptions), for that reason the current name does not reflect the behavior
-            $exposeSecurityErrors = $exposeSecurityErrors ? ExposeSecurityLevel::None : ExposeSecurityLevel::All;
-        }
-
-        $this->exposeSecurityErrors = $exposeSecurityErrors;
     }
 
     /**

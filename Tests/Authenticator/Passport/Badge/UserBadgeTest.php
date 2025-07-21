@@ -31,13 +31,9 @@ class UserBadgeTest extends TestCase
         $badge->getUser();
     }
 
-    /**
-     * @group legacy
-     */
     public function testEmptyUserIdentifier()
     {
-        $this->expectUserDeprecationMessage('Since symfony/security-http 7.2: Using an empty string as user identifier is deprecated and will throw an exception in Symfony 8.0.');
-        // $this->expectException(BadCredentialsException::class)
+        $this->expectException(BadCredentialsException::class)
         new UserBadge('', fn () => null);
     }
 
