@@ -33,7 +33,7 @@ class UserBadgeTest extends TestCase
 
     public function testEmptyUserIdentifier()
     {
-        $this->expectException(BadCredentialsException::class)
+        $this->expectException(BadCredentialsException::class);
         new UserBadge('', fn () => null);
     }
 
