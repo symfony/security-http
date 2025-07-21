@@ -13,6 +13,7 @@ namespace Symfony\Component\Security\Http\Tests\Authenticator\Passport\Badge;
 
 use PHPUnit\Framework\TestCase;
 use Symfony\Bridge\PhpUnit\ExpectUserDeprecationMessageTrait;
+use Symfony\Component\Security\Core\Exception\BadCredentialsException;
 use Symfony\Component\Security\Core\Exception\UserNotFoundException;
 use Symfony\Component\Security\Http\Authenticator\Passport\Badge\UserBadge;
 use Symfony\Component\String\Slugger\AsciiSlugger;
