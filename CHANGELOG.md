@@ -9,6 +9,7 @@ CHANGELOG
  * Throw a `BadCredentialsException` when passing an empty string as `$userIdentifier` argument to `UserBadge` constructor
  * Accept only `ExposeSecurityLevel` enums for `AuthenticatorManager`'s `$exposeSecurityErrors` argument
  * Respectively accept only `AlgorithmManager` and `JWKSet` for `OidcTokenHandler`'s `$signatureAlgorithm` and `$signatureKeyset` arguments
+ * Add argument `$attributes` to `UserAuthenticatorInterface::authenticateUser()`
 
 7.4
 ---

@@ -14,7 +14,6 @@ namespace Symfony\Component\Security\Http\Authentication;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Security\Core\Authentication\Token\AbstractToken;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\AuthenticationEvents;
@@ -66,10 +65,8 @@ class AuthenticatorManager implements AuthenticatorManagerInterface, UserAuthent
      * @param BadgeInterface[]     $badges     Optionally, pass some Passport badges to use for the manual login
      * @param array<string, mixed> $attributes Optionally, pass some Passport attributes to use for the manual login
      */
-    public function authenticateUser(UserInterface $user, AuthenticatorInterface $authenticator, Request $request, array $badges = [] /* , array $attributes = [] */): ?Response
+    public function authenticateUser(UserInterface $user, AuthenticatorInterface $authenticator, Request $request, array $badges = [], array $attributes = []): ?Response
     {
-        $attributes = 4 < \func_num_args() ? func_get_arg(4) : [];
-
         // create an authentication token for the User
         $passport = new SelfValidatingPassport(new UserBadge($user->getUserIdentifier(), fn () => $user), $badges);
         foreach ($attributes as $k => $v) {
