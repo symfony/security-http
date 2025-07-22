@@ -12,7 +12,6 @@
 namespace Symfony\Component\Security\Http\Tests\Authenticator\Passport\Badge;
 
 use PHPUnit\Framework\TestCase;
-use Symfony\Bridge\PhpUnit\ExpectUserDeprecationMessageTrait;
 use Symfony\Component\Security\Core\Exception\BadCredentialsException;
 use Symfony\Component\Security\Core\Exception\UserNotFoundException;
 use Symfony\Component\Security\Http\Authenticator\Passport\Badge\UserBadge;
@@ -23,8 +22,6 @@ use function Symfony\Component\String\u;
 
 class UserBadgeTest extends TestCase
 {
-    use ExpectUserDeprecationMessageTrait;
-
     public function testUserNotFound()
     {
         $badge = new UserBadge('dummy', fn () => null);
