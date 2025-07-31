@@ -62,9 +62,7 @@ class AuthenticatorManagerTest extends TestCase
         $this->response = $this->createMock(Response::class);
     }
 
-    /**
-     * @dataProvider provideSupportsData
-     */
+    #[DataProvider('provideSupportsData')]
     public function testSupports($authenticators, $result)
     {
         $manager = $this->createManager($authenticators, exposeSecurityErrors: ExposeSecurityLevel::None);
@@ -109,9 +107,7 @@ class AuthenticatorManagerTest extends TestCase
         $manager->authenticateRequest($this->request);
     }
 
-    /**
-     * @dataProvider provideMatchingAuthenticatorIndex
-     */
+    #[DataProvider('provideMatchingAuthenticatorIndex')]
     public function testAuthenticateRequest($matchingAuthenticatorIndex)
     {
         $authenticators = [$this->createAuthenticator(0 === $matchingAuthenticatorIndex), $this->createAuthenticator(1 === $matchingAuthenticatorIndex)];

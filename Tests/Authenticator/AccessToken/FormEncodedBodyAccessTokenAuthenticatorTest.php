@@ -11,6 +11,7 @@
 
 namespace Symfony\Component\Security\Http\Tests\Authenticator\AccessToken;
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Security\Core\Exception\BadCredentialsException;
@@ -78,9 +79,7 @@ class FormEncodedBodyAccessTokenAuthenticatorTest extends TestCase
         $this->assertInstanceOf(SelfValidatingPassport::class, $passport);
     }
 
-    /**
-     * @dataProvider provideInvalidAuthenticateData
-     */
+    #[DataProvider('provideInvalidAuthenticateData')]
     public function testAuthenticateInvalid(Request $request, string $errorMessage, string $exceptionType)
     {
         $this->setUpAuthenticator();

@@ -11,6 +11,7 @@
 
 namespace Symfony\Component\Security\Http\Tests\AccessToken\Oidc;
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Security\Core\Exception\BadCredentialsException;
@@ -23,9 +24,7 @@ use Symfony\Contracts\HttpClient\ResponseInterface;
 
 class OidcUserInfoTokenHandlerTest extends TestCase
 {
-    /**
-     * @dataProvider getClaims
-     */
+    #[DataProvider('getClaims')]
     public function testGetsUserIdentifierFromOidcServerResponse(string $claim, string $expected)
     {
         $accessToken = 'a-secret-token';

@@ -11,6 +11,7 @@
 
 namespace Symfony\Component\Security\Http\Tests\Authenticator;
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Cookie;
@@ -44,9 +45,7 @@ class RememberMeAuthenticatorTest extends TestCase
         $this->assertFalse($this->authenticator->supports(Request::create('/')));
     }
 
-    /**
-     * @dataProvider provideSupportsData
-     */
+    #[DataProvider('provideSupportsData')]
     public function testSupports($request, $support)
     {
         $this->assertSame($support, $this->authenticator->supports($request));

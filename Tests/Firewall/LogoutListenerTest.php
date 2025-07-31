@@ -11,6 +11,7 @@
 
 namespace Symfony\Component\Security\Http\Tests\Firewall;
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\HttpFoundation\Request;
@@ -131,9 +132,7 @@ class LogoutListenerTest extends TestCase
         $listener->authenticate(new RequestEvent($this->createMock(HttpKernelInterface::class), $request, HttpKernelInterface::MAIN_REQUEST));
     }
 
-    /**
-     * @dataProvider provideInvalidCsrfTokens
-     */
+    #[DataProvider('provideInvalidCsrfTokens')]
     public function testCsrfValidationFails($invalidToken)
     {
         $tokenManager = $this->getTokenManager();

@@ -11,6 +11,7 @@
 
 namespace Symfony\Component\Security\Http\Tests\EventListener;
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\ExpressionLanguage\Expression;
 use Symfony\Component\HttpFoundation\Request;
@@ -216,9 +217,7 @@ class IsGrantedAttributeListenerTest extends TestCase
         $listener->onKernelControllerArguments($event);
     }
 
-    /**
-     * @dataProvider getAccessDeniedMessageTests
-     */
+    #[DataProvider('getAccessDeniedMessageTests')]
     public function testAccessDeniedMessages(string|Expression $attribute, string|array|null $subject, string $method, int $numOfArguments, string $expectedMessage)
     {
         $authChecker = new AuthorizationChecker(new TokenStorage(), new AccessDecisionManager((function () use (&$authChecker) {

@@ -11,6 +11,7 @@
 
 namespace Symfony\Component\Security\Http\Tests\RememberMe;
 
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Cookie;
 use Symfony\Component\HttpFoundation\Request;
@@ -42,9 +43,7 @@ class SignatureRememberMeHandlerTest extends TestCase
         $this->handler = new SignatureRememberMeHandler($this->signatureHasher, $this->userProvider, $this->requestStack, []);
     }
 
-    /**
-     * @group time-sensitive
-     */
+    #[Group('time-sensitive')]
     public function testCreateRememberMeCookie()
     {
         $user = new InMemoryUser('wouter', null);
