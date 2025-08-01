@@ -45,7 +45,7 @@ class ExceptionListenerTest extends TestCase
     }
 
     #[DataProvider('getAuthenticationExceptionProvider')]
-    public function testAuthenticationExceptionWithEntryPoint(\Exception $exception)
+    public function testAuthenticationExceptionWithEntryPoint(\Exception $exception, \Exception $eventException)
     {
         $event = $this->createEvent($exception);
 
