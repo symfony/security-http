@@ -11,8 +11,6 @@
 
 namespace Symfony\Component\Security\Http\Firewall;
 
-use Symfony\Component\HttpKernel\Event\RequestEvent;
-
 /**
  * A base class for listeners that can tell whether they should authenticate incoming requests.
  *
