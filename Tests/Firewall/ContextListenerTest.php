@@ -11,6 +11,8 @@
 
 namespace Symfony\Component\Security\Http\Tests\Firewall;
 
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\TestWith;
 use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
 use Symfony\Component\EventDispatcher\EventDispatcher;
@@ -159,9 +161,7 @@ class ContextListenerTest extends TestCase
         $this->assertFalse($session->isStarted());
     }
 
-    /**
-     * @dataProvider provideInvalidToken
-     */
+    #[DataProvider('provideInvalidToken')]
     public function testInvalidTokenInSession($token)
     {
         $tokenStorage = $this->createMock(TokenStorageInterface::class);
@@ -376,11 +376,9 @@ class ContextListenerTest extends TestCase
         $this->assertSame([], $dispatcher->getListeners());
     }
 
-    /**
-     * @testWith [true]
-     *           [false]
-     *           [null]
-     */
+    #[TestWith([true])]
+    #[TestWith([false])]
+    #[TestWith([null])]
     public function testNullOrHashedPasswordInSessionDoesntInvalidateTheToken(?bool $hashPassword)
     {
         $user = new CustomUser('user', ['ROLE_USER'], 'pass', $hashPassword);

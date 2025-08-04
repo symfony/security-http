@@ -11,6 +11,7 @@
 
 namespace Symfony\Component\Security\Http\Tests\Authenticator\Passport\Badge;
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Security\Core\Exception\BadCredentialsException;
 use Symfony\Component\Security\Core\Exception\UserNotFoundException;
@@ -35,9 +36,7 @@ class UserBadgeTest extends TestCase
         new UserBadge('', fn () => null);
     }
 
-    /**
-     * @dataProvider provideUserIdentifierNormalizationData
-     */
+    #[DataProvider('provideUserIdentifierNormalizationData')]
     public function testUserIdentifierNormalization(string $identifier, string $expectedNormalizedIdentifier, callable $normalizer)
     {
         $badge = new UserBadge($identifier, fn () => null, identifierNormalizer: $normalizer);

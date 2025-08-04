@@ -17,6 +17,8 @@ use Jose\Component\Core\JWKSet;
 use Jose\Component\Signature\Algorithm\ES256;
 use Jose\Component\Signature\JWSBuilder;
 use Jose\Component\Signature\Serializer\CompactSerializer;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\RequiresPhpExtension;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Security\Core\Exception\BadCredentialsException;
@@ -25,16 +27,12 @@ use Symfony\Component\Security\Http\AccessToken\Oidc\OidcTokenHandler;
 use Symfony\Component\Security\Http\Authenticator\FallbackUserLoader;
 use Symfony\Component\Security\Http\Authenticator\Passport\Badge\UserBadge;
 
-/**
- * @requires extension openssl
- */
+#[RequiresPhpExtension('openssl')]
 class OidcTokenHandlerTest extends TestCase
 {
     private const AUDIENCE = 'Symfony OIDC';
 
-    /**
-     * @dataProvider getClaims
-     */
+    #[DataProvider('getClaims')]
     public function testGetsUserIdentifierFromSignedToken(string $claim, string $expected)
     {
         $time = time();
@@ -76,9 +74,7 @@ class OidcTokenHandlerTest extends TestCase
         yield ['email', 'foo@example.com'];
     }
 
-    /**
-     * @dataProvider getInvalidTokens
-     */
+    #[DataProvider('getInvalidTokens')]
     public function testThrowsAnErrorIfTokenIsInvalid(string $token)
     {
         $loggerMock = $this->createMock(LoggerInterface::class);
