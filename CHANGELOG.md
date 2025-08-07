@@ -7,6 +7,7 @@ CHANGELOG
  * Add support for union types with `#[CurrentUser]`
  * Deprecate callable firewall listeners, extend `AbstractListener` or implement `FirewallListenerInterface` instead
  * Deprecate `AbstractListener::__invoke`
+ * Add `$methods` argument to `#[IsGranted]` to restrict validation to specific HTTP methods
 
 7.3
 ---
