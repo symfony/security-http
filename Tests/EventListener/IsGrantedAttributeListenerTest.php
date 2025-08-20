@@ -454,4 +454,74 @@ class IsGrantedAttributeListenerTest extends TestCase
 
         $listener->onKernelControllerArguments($event);
     }
+
+    public function testThrowsAccessDeniedExceptionWhenMethodMatchesStringConstraint()
+    {
+        $authChecker = $this->createMock(AuthorizationCheckerInterface::class);
+        $authChecker->expects($this->once())->method('isGranted')->willReturn(false);
+
+        $event = new ControllerArgumentsEvent(
+            $this->createMock(HttpKernelInterface::class),
+            [new IsGrantedAttributeMethodsController(), 'adminWithMethodGet'],
+            [],
+            new Request([], [], [], [], [], ['REQUEST_METHOD' => 'GET']),
+            null
+        );
+
+        $listener = new IsGrantedAttributeListener($authChecker);
+        $this->expectException(AccessDeniedException::class);
+        $listener->onKernelControllerArguments($event);
+    }
+
+    public function testThrowsAccessDeniedExceptionWhenMethodMatchesArrayConstraint()
+    {
+        $authChecker = $this->createMock(AuthorizationCheckerInterface::class);
+        $authChecker->expects($this->once())->method('isGranted')->willReturn(false);
+
+        $event = new ControllerArgumentsEvent(
+            $this->createMock(HttpKernelInterface::class),
+            [new IsGrantedAttributeMethodsController(), 'adminWithMethodGetAndPost'],
+            [],
+            new Request([], [], [], [], [], ['REQUEST_METHOD' => 'POST']),
+            null
+        );
+
+        $listener = new IsGrantedAttributeListener($authChecker);
+        $this->expectException(AccessDeniedException::class);
+        $listener->onKernelControllerArguments($event);
+    }
+
+    public function testSkipsAuthorizationWhenMethodDoesNotMatchArrayConstraint()
+    {
+        $authChecker = $this->createMock(AuthorizationCheckerInterface::class);
+        $authChecker->expects($this->never())->method('isGranted');
+
+        $event = new ControllerArgumentsEvent(
+            $this->createMock(HttpKernelInterface::class),
+            [new IsGrantedAttributeMethodsController(), 'adminWithMethodGetAndPost'],
+            [],
+            new Request([], [], [], [], [], ['REQUEST_METHOD' => 'PUT']),
+            null
+        );
+
+        $listener = new IsGrantedAttributeListener($authChecker);
+        $listener->onKernelControllerArguments($event);
+    }
+
+    public function testSkipsAuthorizationWhenMethodDoesNotMatchStringConstraint()
+    {
+        $authChecker = $this->createMock(AuthorizationCheckerInterface::class);
+        $authChecker->expects($this->never())->method('isGranted');
+
+        $event = new ControllerArgumentsEvent(
+            $this->createMock(HttpKernelInterface::class),
+            [new IsGrantedAttributeMethodsController(), 'adminWithMethodGet'],
+            [],
+            new Request([], [], [], [], [], ['REQUEST_METHOD' => 'POST']),
+            null
+        );
+
+        $listener = new IsGrantedAttributeListener($authChecker);
+        $listener->onKernelControllerArguments($event);
+    }
 }
