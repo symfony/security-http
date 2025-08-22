@@ -22,7 +22,7 @@ use Symfony\Component\HttpFoundation\Request;
  * @author Ryan Weaver <ryan@knpuniversity.com>
  */
 #[\Attribute(\Attribute::IS_REPEATABLE | \Attribute::TARGET_CLASS | \Attribute::TARGET_METHOD | \Attribute::TARGET_FUNCTION)]
-final class IsGranted
+class IsGranted
 {
     /** @var string[] */
     public readonly array $methods;
