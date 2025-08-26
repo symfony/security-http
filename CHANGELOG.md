@@ -18,6 +18,7 @@ CHANGELOG
  * Deprecate callable firewall listeners, extend `AbstractListener` or implement `FirewallListenerInterface` instead
  * Deprecate `AbstractListener::__invoke`
  * Add `$methods` argument to `#[IsGranted]` to restrict validation to specific HTTP methods
+ * Remove `final` keyword from `#[IsGranted]` to allow implementation of custom attributes
 
 7.3
 ---

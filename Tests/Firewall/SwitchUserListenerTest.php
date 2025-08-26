@@ -17,6 +17,7 @@ use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorage;
 use Symfony\Component\Security\Core\Authentication\Token\SwitchUserToken;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
@@ -107,6 +108,21 @@ class SwitchUserListenerTest extends TestCase
         $this->assertInstanceOf(RedirectResponse::class, $this->event->getResponse());
         $this->assertSame($this->request->getUri(), $this->event->getResponse()->getTargetUrl());
         $this->assertSame($originalToken, $this->tokenStorage->getToken());
+    }
+
+    public function testExitUserDoesNotRedirectToTargetRoute()
+    {
+        $originalToken = new UsernamePasswordToken(new InMemoryUser('username', '', []), 'key', []);
+        $this->tokenStorage->setToken(new SwitchUserToken(new InMemoryUser('username', '', ['ROLE_USER']), 'key', ['ROLE_USER'], $originalToken));
+
+        $this->request->query->set('_switch_user', SwitchUserListener::EXIT_VALUE);
+
+        $listener = new SwitchUserListener($this->tokenStorage, $this->userProvider, $this->userChecker, 'provider123', $this->accessDecisionManager, urlGenerator: $this->createMock(UrlGeneratorInterface::class), targetRoute: 'whatever');
+        $this->assertTrue($listener->supports($this->event->getRequest()));
+        $listener->authenticate($this->event);
+
+        $this->assertInstanceOf(RedirectResponse::class, $this->event->getResponse());
+        $this->assertSame($this->request->getUri(), $this->event->getResponse()->getTargetUrl());
     }
 
     public function testExitUserDispatchesEventWithRefreshedUser()
