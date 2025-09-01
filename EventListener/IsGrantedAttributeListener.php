@@ -39,7 +39,14 @@ class IsGrantedAttributeListener implements EventSubscriberInterface
 
     public function onKernelControllerArguments(ControllerArgumentsEvent $event): void
     {
-        if (!$attributes = $event->getAttributes(IsGranted::class)) {
+        $attributes = [];
+        foreach ($event->getAttributes() as $class => $attributes[]) {
+            if (!is_a($class, IsGranted::class, true)) {
+                array_pop($attributes);
+            }
+        }
+
+        if (!$attributes = array_merge(...$attributes)) {
             return;
         }
 
