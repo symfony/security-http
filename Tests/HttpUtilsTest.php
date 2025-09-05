@@ -233,6 +233,16 @@ class HttpUtilsTest extends TestCase
         ];
     }
 
+    public function testCreateRequestHandlesTrustedHeaders()
+    {
+        Request::setTrustedProxies(['127.0.0.1'], Request::HEADER_X_FORWARDED_PREFIX);
+
+        $this->assertSame(
+            'http://localhost/foo/',
+            (new HttpUtils())->createRequest(Request::create('/', server: ['HTTP_X_FORWARDED_PREFIX' => '/foo']), '/')->getUri(),
+        );
+    }
+
     public function testCheckRequestPath()
     {
         $utils = new HttpUtils($this->getUrlGenerator());
