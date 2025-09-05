@@ -146,8 +146,8 @@ class LogoutUrlGenerator
         }
 
         // Fetch from injected current firewall information, if possible
-        if (isset($this->listeners[$this->currentFirewallName])) {
-            return $this->listeners[$this->currentFirewallName];
+        if (isset($this->listeners[$this->currentFirewallName ?? ''])) {
+            return $this->listeners[$this->currentFirewallName ?? ''];
         }
 
         foreach ($this->listeners as $listener) {
