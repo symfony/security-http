@@ -46,9 +46,9 @@ class RememberMeDetails
         return new static(...$cookieParts);
     }
 
-    public static function fromPersistentToken(PersistentToken $persistentToken, int $expires): self
+    public static function fromPersistentToken(PersistentToken $token, int $expires): self
     {
-        return new static($persistentToken->getClass(), $persistentToken->getUserIdentifier(), $expires, $persistentToken->getSeries().':'.$persistentToken->getTokenValue());
+        return new static(method_exists($token, 'getClass') ? $token->getClass(false) : '', $token->getUserIdentifier(), $expires, $token->getSeries().':'.$token->getTokenValue());
     }
 
     public function withValue(string $value): self
@@ -59,8 +59,13 @@ class RememberMeDetails
         return $details;
     }
 
+    /**
+     * @deprecated since Symfony 7.4, the user FQCN will be removed from the remember-me cookie in 8.0
+     */
     public function getUserFqcn(): string
     {
+        trigger_deprecation('symfony/security-http', '7.4', 'The "%s()" method is deprecated: the user FQCN will be removed from the remember-me cookie in 8.0.', __METHOD__);
+
         return $this->userFqcn;
     }
 

@@ -19,6 +19,8 @@ CHANGELOG
  * Deprecate `AbstractListener::__invoke`
  * Add `$methods` argument to `#[IsGranted]` to restrict validation to specific HTTP methods
  * Allow subclassing `#[IsGranted]`
+ * Add `$tokenSource` argument to `#[IsCsrfTokenValid]` to support reading tokens from the query string or headers
+ * Deprecate `RememberMeDetails::getUserFqcn()`, the user FQCN will be removed from the remember-me cookie in 8.0
 
 7.3
 ---
