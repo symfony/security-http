@@ -68,7 +68,17 @@ class RememberMeAuthenticatorTest extends TestCase
 
     public function testAuthenticate()
     {
-        $rememberMeDetails = new RememberMeDetails(InMemoryUser::class, 'wouter', 1, 'secret');
+        $rememberMeDetails = new RememberMeDetails('wouter', 1, 'secret');
+        $request = Request::create('/', 'GET', [], ['_remember_me_cookie' => implode(RememberMeDetails::COOKIE_DELIMITER, \array_slice(explode(RememberMeDetails::COOKIE_DELIMITER, $rememberMeDetails->toString()), 1))]);
+        $passport = $this->authenticator->authenticate($request);
+
+        $this->rememberMeHandler->expects($this->once())->method('consumeRememberMeCookie')->with($this->callback(fn ($arg) => $rememberMeDetails == $arg));
+        $passport->getUser(); // trigger the user loader
+    }
+
+    public function testAuthenticateLegacyCookieFormat()
+    {
+        $rememberMeDetails = new RememberMeDetails(InMemoryUser::class, 'wouter', 1, 'secret', false);
         $request = Request::create('/', 'GET', [], ['_remember_me_cookie' => $rememberMeDetails->toString()]);
         $passport = $this->authenticator->authenticate($request);
 

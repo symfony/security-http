@@ -52,7 +52,11 @@ final class PersistentRememberMeHandler extends AbstractRememberMeHandler
         $series = random_bytes(66);
         $tokenValue = strtr(base64_encode(substr($series, 33)), '+/=', '-_~');
         $series = strtr(base64_encode(substr($series, 0, 33)), '+/=', '-_~');
-        $token = new PersistentToken($user::class, $user->getUserIdentifier(), $series, $tokenValue, new \DateTimeImmutable());
+        if (method_exists(PersistentToken::class, 'getClass')) {
+            $token = new PersistentToken($user::class, $user->getUserIdentifier(), $series, $tokenValue, new \DateTimeImmutable(), false);
+        } else {
+            $token = new PersistentToken($user->getUserIdentifier(), $series, $tokenValue, new \DateTimeImmutable());
+        }
 
         $this->tokenProvider->createNewToken($token);
         $this->createCookie(RememberMeDetails::fromPersistentToken($token, time() + $this->options['lifetime']));
@@ -92,14 +96,19 @@ final class PersistentRememberMeHandler extends AbstractRememberMeHandler
             method_exists($token, 'getClass') ? $token->getClass(false) : '',
             $token->getUserIdentifier(),
             $expires,
-            $token->getLastUsed()->getTimestamp().':'.$series.':'.$tokenValue.':'.(method_exists($token, 'getClass') ? $token->getClass(false) : '')
+            $token->getLastUsed()->getTimestamp().':'.$series.':'.$tokenValue.':'.(method_exists($token, 'getClass') ? $token->getClass(false) : ''),
+            false
         ));
     }
 
     public function processRememberMe(RememberMeDetails $rememberMeDetails, UserInterface $user): void
     {
         [$lastUsed, $series, $tokenValue, $class] = explode(':', $rememberMeDetails->getValue(), 4);
-        $token = new PersistentToken($class, $rememberMeDetails->getUserIdentifier(), $series, $tokenValue, new \DateTimeImmutable('@'.$lastUsed));
+        if (method_exists(PersistentToken::class, 'getClass')) {
+            $token = new PersistentToken($class, $rememberMeDetails->getUserIdentifier(), $series, $tokenValue, new \DateTimeImmutable('@'.$lastUsed), false);
+        } else {
+            $token = new PersistentToken($rememberMeDetails->getUserIdentifier(), $series, $tokenValue, new \DateTimeImmutable('@'.$lastUsed));
+        }
 
         // if a token was regenerated less than a minute ago, there is no need to regenerate it
         // if multiple concurrent requests reauthenticate a user we do not want to update the token several times
