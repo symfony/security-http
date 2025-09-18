@@ -251,7 +251,9 @@ class PersistentRememberMeHandlerTest extends TestCase
         $this->tokenProvider->expects($this->once())->method('updateToken')->with('series1');
 
         $rememberMeDetails = new RememberMeDetails(InMemoryUser::class, 'wouter', 360, 'series1:tokenvalue', false);
-        $rememberMeDetails = RememberMeDetails::fromRawCookie(base64_encode(implode(RememberMeDetails::COOKIE_DELIMITER, \array_slice(explode(RememberMeDetails::COOKIE_DELIMITER, $rememberMeDetails->toString()), 1))));
+        $cookieData = explode(RememberMeDetails::COOKIE_DELIMITER, $rememberMeDetails->toString());
+        $cookieData[0] = '';
+        $rememberMeDetails = RememberMeDetails::fromRawCookie(base64_encode(implode(RememberMeDetails::COOKIE_DELIMITER, $cookieData)));
         $this->handler->consumeRememberMeCookie($rememberMeDetails);
     }
 

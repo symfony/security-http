@@ -78,30 +78,22 @@ class RememberMeDetails
         if (!str_contains($rawCookie, self::COOKIE_DELIMITER)) {
             $rawCookie = base64_decode($rawCookie);
         }
-        $cookieParts = explode(self::COOKIE_DELIMITER, $rawCookie, 3);
 
-        if (isset($cookieParts[1]) && !preg_match('/^\d+$/', $cookieParts[1])) {
-            // legacy (Symfony < 8.0) cookie format
-            $cookieParts = explode(self::COOKIE_DELIMITER, $rawCookie, 4);
+        $cookieParts = explode(self::COOKIE_DELIMITER, $rawCookie, 4);
 
-            if (4 !== \count($cookieParts)) {
-                throw new AuthenticationException('The cookie contains invalid data.');
-            }
+        if (4 !== \count($cookieParts)) {
+            throw new AuthenticationException('The cookie contains invalid data.');
+        }
 
-            if (false === $cookieParts[1] = base64_decode(strtr($cookieParts[1], '-_~', '+/='), true)) {
-                throw new AuthenticationException('The user identifier contains a character from outside the base64 alphabet.');
-            }
+        if (false === $cookieParts[1] = base64_decode(strtr($cookieParts[1], '-_~', '+/='), true)) {
+            throw new AuthenticationException('The user identifier contains a character from outside the base64 alphabet.');
+        }
 
+        if ('' === $cookieParts[0]) {
+            unset($cookieParts[0]);
+        } else {
             $cookieParts[0] = strtr($cookieParts[0], '.', '\\');
             $cookieParts[4] = false;
-        } else {
-            if (3 !== \count($cookieParts)) {
-                throw new AuthenticationException('The cookie contains invalid data.');
-            }
-
-            if (false === $cookieParts[0] = base64_decode(strtr($cookieParts[0], '-_~', '+/='), true)) {
-                throw new AuthenticationException('The user identifier contains a character from outside the base64 alphabet.');
-            }
         }
 
         return new static(...$cookieParts);
