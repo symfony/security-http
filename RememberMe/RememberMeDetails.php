@@ -89,19 +89,12 @@ class RememberMeDetails
             throw new AuthenticationException('The user identifier contains a character from outside the base64 alphabet.');
         }
 
-        if ('' === $cookieParts[0]) {
-            unset($cookieParts[0]);
-        } else {
-            $cookieParts[0] = strtr($cookieParts[0], '.', '\\');
-            $cookieParts[4] = false;
-        }
-
-        return new static(...$cookieParts);
+        return new static(...self::collectConstructorArguments(strtr($cookieParts[0], '.', '\\'), $cookieParts[1], $cookieParts[2], $cookieParts[3]));
     }
 
     public static function fromPersistentToken(PersistentToken $token, int $expires): self
     {
-        return new static(method_exists($token, 'getClass') ? $token->getClass(false) : '', $token->getUserIdentifier(), $expires, $token->getSeries().':'.$token->getTokenValue(), false);
+        return new static(...self::collectConstructorArguments(method_exists($token, 'getClass') ? $token->getClass(false) : '', $token->getUserIdentifier(), $expires, $token->getSeries().':'.$token->getTokenValue()));
     }
 
     public function withValue(string $value): self
@@ -141,5 +134,22 @@ class RememberMeDetails
     {
         // $userIdentifier is encoded because it might contain COOKIE_DELIMITER, we assume other values don't
         return implode(self::COOKIE_DELIMITER, [strtr($this->userFqcn ?? '', '\\', '.'), strtr(base64_encode($this->userIdentifier), '+/=', '-_~'), $this->expires, $this->value]);
+    }
+
+    private static function collectConstructorArguments(string $userFqcn, string $userIdentifier, int $expires, string $value): array
+    {
+        $constructor = new \ReflectionMethod(static::class, '__construct');
+
+        if (self::class === $constructor->class) {
+            return [$userFqcn, $userIdentifier, $expires, $value, false];
+        }
+
+        if (3 < $constructor->getNumberOfRequiredParameters()) {
+            trigger_deprecation('symfony/security-http', '7.4', 'Extending the "%s" class and overriding the constructor with four required arguments is deprecated. Change the constructor signature to __construct(string $userIdentifier, int $expires, string $value).', self::class);
+
+            return [$userFqcn, $userIdentifier, $expires, $value];
+        }
+
+        return [$userIdentifier, $expires, $value];
     }
 }
