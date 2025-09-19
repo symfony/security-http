@@ -115,7 +115,7 @@ class PersistentRememberMeHandlerTest extends TestCase
         $rememberParts = explode(':', $rememberMeDetails->toString(), 4);
         $cookieParts = explode(':', $cookie->getValue(), 4);
 
-        $this->assertSame($rememberParts[0], $cookieParts[0]); // class
+        $this->assertSame(method_exists(PersistentToken::class, 'getClass') ? $rememberParts[0] : '', $cookieParts[0]); // class
         $this->assertSame($rememberParts[1], $cookieParts[1]); // identifier
         $this->assertEqualsWithDelta($lastUsed->getTimestamp() + 31536000, (int) $cookieParts[2], 2); // expire
         $this->assertNotSame($rememberParts[3], $cookieParts[3]); // value
