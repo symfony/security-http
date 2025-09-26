@@ -4,6 +4,31 @@ CHANGELOG
 8.0
 ---
 
+ * When extending the `RememberMeDetails` class and overriding its constructor, the `$userFqcn` parameter has to be removed from its signature:
+
+   Before:
+
+   ```php
+   class CustomRememberMeDetails extends RememberMeDetails
+   {
+       public function __construct(string $userFqcn, string $userIdentifier, int $expires, string $value)
+       {
+           parent::__construct($userFqcn, $userIdentifier, $expires, $value);
+       }
+   }
+   ```
+
+   After:
+
+   ```php
+   class CustomRememberMeDetails extends RememberMeDetails
+   {
+       public function __construct(string $userIdentifier, int $expires, string $value)
+       {
+           parent::__construct($userIdentifier, $expires, $value);
+       }
+   }
+   ```
  * Remove `RememberMeDetails::getUserFqcn()`
  * Remove callable firewall listeners support, extend `AbstractListener` or implement `FirewallListenerInterface` instead
  * Remove `AbstractListener::__invoke`
