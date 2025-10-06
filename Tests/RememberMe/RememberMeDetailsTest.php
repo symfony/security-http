@@ -11,8 +11,6 @@
 
 namespace Symfony\Component\Security\Http\Tests\RememberMe;
 
-use PHPUnit\Framework\Attributes\Group;
-use PHPUnit\Framework\Attributes\IgnoreDeprecations;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Security\Core\Authentication\RememberMe\PersistentToken;
 use Symfony\Component\Security\Core\User\InMemoryUser;
@@ -50,8 +48,6 @@ class RememberMeDetailsTest extends TestCase
         $this->assertSame('series1:token_value', $rememberMeDetails->getValue());
     }
 
-    #[Group('legacy')]
-    #[IgnoreDeprecations]
     public function testFromLegacyRawCookie()
     {
         $rememberMeDetails = RememberMeDetails::fromRawCookie(self::getLegacyRememberMeCookieValue());
@@ -62,8 +58,6 @@ class RememberMeDetailsTest extends TestCase
         $this->assertSame('series1:token_value', $rememberMeDetails->getValue());
     }
 
-    #[Group('legacy')]
-    #[IgnoreDeprecations]
     public function testFromLegacyRawCookieChildClassWithNewConstructorSignature()
     {
         $rememberMeDetails = RememberMeDetailsChild::fromRawCookie(self::getLegacyRememberMeCookieValue());
@@ -74,8 +68,6 @@ class RememberMeDetailsTest extends TestCase
         $this->assertSame('series1:token_value', $rememberMeDetails->getValue());
     }
 
-    #[Group('legacy')]
-    #[IgnoreDeprecations]
     public function testFromLegacyRawCookieChildClassWithoutConstructor()
     {
         $rememberMeDetails = RememberMeDetailsChildWithoutConstructor::fromRawCookie(self::getLegacyRememberMeCookieValue());
