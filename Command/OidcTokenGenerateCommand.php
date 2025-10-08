@@ -44,7 +44,6 @@ final class OidcTokenGenerateCommand extends Command
         ;
     }
 
-
     /**
      * @params array<string, list<string>> $algorithms
      * @params array<string, list<string>> $issuers
@@ -80,19 +79,19 @@ final class OidcTokenGenerateCommand extends Command
 
     private function getGenerator(?string $firewall): OidcTokenGenerator
     {
-        if (0 === count($this->generators)) {
+        if (0 === \count($this->generators)) {
             throw new \InvalidArgumentException('No OIDC token generator configured.');
         }
 
         if ($firewall) {
-            return $this->generators[$firewall] ?? throw new \InvalidArgumentException(sprintf('Invalid firewall. Available firewalls: "%s".', implode('", "', array_keys($this->generators))));
+            return $this->generators[$firewall] ?? throw new \InvalidArgumentException(\sprintf('Invalid firewall. Available firewalls: "%s".', implode('", "', array_keys($this->generators))));
         }
 
-        if (1 === count($this->generators)) {
+        if (1 === \count($this->generators)) {
             return end($this->generators);
         }
 
-        throw new \InvalidArgumentException(sprintf('Please choose an firewall. Available firewalls: "%s".', implode('", "', array_keys($this->generators))));
+        throw new \InvalidArgumentException(\sprintf('Please choose an firewall. Available firewalls: "%s".', implode('", "', array_keys($this->generators))));
     }
 
     public function complete(CompletionInput $input, CompletionSuggestions $suggestions): void
@@ -103,13 +102,13 @@ final class OidcTokenGenerateCommand extends Command
 
         if ($input->mustSuggestOptionValuesFor('algorithm')) {
             foreach ($this->algorithms as $algorithm => $firewalls) {
-                $suggestions->suggestValue(new Suggestion($algorithm, sprintf('Available firewalls: "%s".', implode('", "', $firewalls))));
+                $suggestions->suggestValue(new Suggestion($algorithm, \sprintf('Available firewalls: "%s".', implode('", "', $firewalls))));
             }
         }
 
         if ($input->mustSuggestOptionValuesFor('issuer')) {
             foreach ($this->issuers as $issuer => $firewalls) {
-                $suggestions->suggestValue(new Suggestion($issuer, sprintf('Available firewalls: "%s".', implode('", "', $firewalls))));
+                $suggestions->suggestValue(new Suggestion($issuer, \sprintf('Available firewalls: "%s".', implode('", "', $firewalls))));
             }
         }
     }
