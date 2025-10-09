@@ -9,7 +9,7 @@
  * file that was distributed with this source code.
  */
 
-namespace AccessToken\Oidc;
+namespace Symfony\Component\Security\Http\Tests\AccessToken\Oidc;
 
 use Jose\Component\Core\AlgorithmManager;
 use Jose\Component\Core\JWK;
@@ -17,14 +17,13 @@ use Jose\Component\Core\JWKSet;
 use Jose\Component\Signature\Algorithm\ES256;
 use Jose\Component\Signature\Algorithm\ES512;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\RequiresPhpExtension;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Security\Http\AccessToken\Oidc\OidcTokenGenerator;
 use Symfony\Component\Security\Http\AccessToken\Oidc\OidcTokenHandler;
 
-/**
- * @requires extension openssl
- */
+#[RequiresPhpExtension('openssl')]
 class OidcTokenGeneratorTest extends TestCase
 {
     public function testGenerate()
