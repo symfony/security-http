@@ -20,6 +20,7 @@ use Symfony\Component\HttpKernel\HttpKernelInterface;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Exception\LogoutException;
+use Symfony\Component\Security\Csrf\CsrfToken;
 use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 use Symfony\Component\Security\Http\Event\LogoutEvent;
 use Symfony\Component\Security\Http\Firewall\LogoutListener;
@@ -66,6 +67,49 @@ class LogoutListenerTest extends TestCase
 
         $tokenManager->expects($this->once())
             ->method('isTokenValid')
+            ->willReturn(true);
+
+        $response = new Response();
+        $dispatcher->addListener(LogoutEvent::class, function (LogoutEvent $event) use ($response) {
+            $event->setResponse($response);
+        });
+
+        $tokenStorage->expects($this->once())
+            ->method('getToken')
+            ->willReturn($token = $this->getToken());
+
+        $tokenStorage->expects($this->once())
+            ->method('setToken')
+            ->with(null);
+
+        $event = new RequestEvent($this->createMock(HttpKernelInterface::class), $request, HttpKernelInterface::MAIN_REQUEST);
+
+        $listener($event);
+
+        $this->assertSame($response, $event->getResponse());
+    }
+
+    public function testHandleMatchedPathWithCsrfInQueryParamAndBody()
+    {
+        $tokenManager = $this->getTokenManager();
+        $dispatcher = $this->getEventDispatcher();
+
+        [$listener, $tokenStorage, $httpUtils, $options] = $this->getListener($dispatcher, $tokenManager);
+
+        $request = new Request();
+        $request->query->set('_csrf_token', 'token');
+        $request->request->set('_csrf_token', 'token2');
+
+        $httpUtils->expects($this->once())
+            ->method('checkRequestPath')
+            ->with($request, $options['logout_path'])
+            ->willReturn(true);
+
+        $tokenManager->expects($this->once())
+            ->method('isTokenValid')
+            ->with($this->callback(function ($token) {
+                return $token instanceof CsrfToken && 'token2' === $token->getValue();
+            }))
             ->willReturn(true);
 
         $response = new Response();
