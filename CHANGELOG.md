@@ -36,6 +36,7 @@ CHANGELOG
  * Allow subclassing `#[IsGranted]`
  * Add `$tokenSource` argument to `#[IsCsrfTokenValid]` to support reading tokens from the query string or headers
  * Deprecate `RememberMeDetails::getUserFqcn()`, the user FQCN will be removed from the remember-me cookie in 8.0
+ * Allow configuring multiple OIDC discovery base URIs
 
 7.3
 ---
