@@ -121,7 +121,8 @@ class LogoutListenerTest extends TestCase
 
         $event = new RequestEvent($this->createMock(HttpKernelInterface::class), $request, HttpKernelInterface::MAIN_REQUEST);
 
-        $listener($event);
+        $this->assertTrue($listener->supports($request));
+        $listener->authenticate($event);
 
         $this->assertSame($response, $event->getResponse());
     }
