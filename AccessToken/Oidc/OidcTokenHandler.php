@@ -46,9 +46,12 @@ final class OidcTokenHandler implements AccessTokenHandlerInterface
     private bool $enforceEncryption = false;
 
     private ?CacheInterface $discoveryCache = null;
-    private ?HttpClientInterface $discoveryClient = null;
     private ?string $oidcConfigurationCacheKey = null;
-    private ?string $oidcJWKSetCacheKey = null;
+
+    /**
+     * @var HttpClientInterface[]
+     */
+    private array $discoveryClients = [];
 
     public function __construct(
         private AlgorithmManager $signatureAlgorithm,
@@ -68,12 +71,18 @@ final class OidcTokenHandler implements AccessTokenHandlerInterface
         $this->enforceEncryption = $enforceEncryption;
     }
 
-    public function enableDiscovery(CacheInterface $cache, HttpClientInterface $client, string $oidcConfigurationCacheKey, string $oidcJWKSetCacheKey): void
+    /**
+     * @param HttpClientInterface|HttpClientInterface[] $client
+     */
+    public function enableDiscovery(CacheInterface $cache, array|HttpClientInterface $client, string $oidcConfigurationCacheKey, ?string $oidcJWKSetCacheKey = null): void
     {
+        if (null !== $oidcJWKSetCacheKey) {
+            trigger_deprecation('symfony/security-http', '7.4', 'Passing $oidcJWKSetCacheKey parameter to "%s()" is deprecated.', __METHOD__);
+        }
+
         $this->discoveryCache = $cache;
-        $this->discoveryClient = $client;
+        $this->discoveryClients = \is_array($client) ? $client : [$client];
         $this->oidcConfigurationCacheKey = $oidcConfigurationCacheKey;
-        $this->oidcJWKSetCacheKey = $oidcJWKSetCacheKey;
     }
 
     public function getUserBadgeFrom(string $accessToken): UserBadge
@@ -82,45 +91,51 @@ final class OidcTokenHandler implements AccessTokenHandlerInterface
             throw new \LogicException('You cannot use the "oidc" token handler since "web-token/jwt-signature" and "web-token/jwt-checker" are not installed. Try running "composer require web-token/jwt-signature web-token/jwt-checker".');
         }
 
-        if (!$this->discoveryCache && !$this->signatureKeyset) {
+        if (!$this->discoveryClients && !$this->signatureKeyset) {
             throw new \LogicException('You cannot use the "oidc" token handler without JWKSet nor "discovery". Please configure JWKSet in the constructor, or call "enableDiscovery" method.');
         }
 
         $jwkset = $this->signatureKeyset;
-        if ($this->discoveryCache) {
-            try {
-                $oidcConfiguration = json_decode($this->discoveryCache->get($this->oidcConfigurationCacheKey, function (): string {
-                    $response = $this->discoveryClient->request('GET', '.well-known/openid-configuration');
+        if ($this->discoveryClients) {
+            $clients = $this->discoveryClients;
+            $logger = $this->logger;
+            $keys = $this->discoveryCache->get($this->oidcConfigurationCacheKey, static function () use ($clients, $logger): array {
+                try {
+                    $configResponses = [];
+                    foreach ($clients as $client) {
+                        $configResponses[] = $client->request('GET', '.well-known/openid-configuration', [
+                            'user_data' => $client,
+                        ]);
+                    }
 
-                    return $response->getContent();
-                }), true, 512, \JSON_THROW_ON_ERROR);
-            } catch (\Throwable $e) {
-                $this->logger?->error('An error occurred while requesting OIDC configuration.', [
-                    'error' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString(),
-                ]);
+                    $jwkSetResponses = [];
+                    foreach ($client->stream($configResponses) as $response => $chunk) {
+                        if ($chunk->isLast()) {
+                            $jwkSetResponses[] = $response->getInfo('user_data')->request('GET', $response->toArray()['jwks_uri']);
+                        }
+                    }
 
-                throw new BadCredentialsException('Invalid credentials.', $e->getCode(), $e);
-            }
+                    $keys = [];
+                    foreach ($jwkSetResponses as $response) {
+                        foreach ($response->toArray()['keys'] as $key) {
+                            if ('sig' === $key['use']) {
+                                $keys[] = $key;
+                            }
+                        }
+                    }
 
-            try {
-                $jwkset = JWKSet::createFromJson(
-                    $this->discoveryCache->get($this->oidcJWKSetCacheKey, function () use ($oidcConfiguration): string {
-                        $response = $this->discoveryClient->request('GET', $oidcConfiguration['jwks_uri']);
-                        // we only need signature key
-                        $keys = array_filter($response->toArray()['keys'], static fn (array $key) => 'sig' === $key['use']);
+                    return $keys;
+                } catch (\Exception $e) {
+                    $logger?->error('An error occurred while requesting OIDC certs.', [
+                        'error' => $e->getMessage(),
+                        'trace' => $e->getTraceAsString(),
+                    ]);
 
-                        return json_encode(['keys' => $keys]);
-                    })
-                );
-            } catch (\Throwable $e) {
-                $this->logger?->error('An error occurred while requesting OIDC certs.', [
-                    'error' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString(),
-                ]);
+                    throw new BadCredentialsException('Invalid credentials.', $e->getCode(), $e);
+                }
+            });
 
-                throw new BadCredentialsException('Invalid credentials.', $e->getCode(), $e);
-            }
+            $jwkset = JWKSet::createFromKeyData(['keys' => $keys]);
         }
 
         try {
