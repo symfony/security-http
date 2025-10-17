@@ -16,10 +16,13 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Session\SessionInterface;
 use Symfony\Component\Routing\Exception\MethodNotAllowedException;
 use Symfony\Component\Routing\Exception\ResourceNotFoundException;
+use Symfony\Component\Routing\Generator\UrlGenerator;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Routing\Matcher\RequestMatcherInterface;
 use Symfony\Component\Routing\Matcher\UrlMatcherInterface;
 use Symfony\Component\Routing\RequestContext;
+use Symfony\Component\Routing\Route;
+use Symfony\Component\Routing\RouteCollection;
 use Symfony\Component\Security\Http\HttpUtils;
 use Symfony\Component\Security\Http\SecurityRequestAttributes;
 
@@ -233,13 +236,31 @@ class HttpUtilsTest extends TestCase
         ];
     }
 
-    public function testCreateRequestHandlesTrustedHeaders()
+    public function testCreateRequestFromPathHandlesTrustedHeaders()
     {
         Request::setTrustedProxies(['127.0.0.1'], Request::HEADER_X_FORWARDED_PREFIX);
 
         $this->assertSame(
             'http://localhost/foo/',
             (new HttpUtils())->createRequest(Request::create('/', server: ['HTTP_X_FORWARDED_PREFIX' => '/foo']), '/')->getUri(),
+        );
+    }
+
+    public function testCreateRequestFromRouteHandlesTrustedHeaders()
+    {
+        Request::setTrustedProxies(['127.0.0.1'], Request::HEADER_X_FORWARDED_PREFIX);
+
+        $request = Request::create('/', server: ['HTTP_X_FORWARDED_PREFIX' => '/foo']);
+
+        $urlGenerator = new UrlGenerator(
+            $routeCollection = new RouteCollection(),
+            (new RequestContext())->fromRequest($request),
+        );
+        $routeCollection->add('root', new Route('/'));
+
+        $this->assertSame(
+            'http://localhost/foo/',
+            (new HttpUtils($urlGenerator))->createRequest($request, 'root')->getUri(),
         );
     }
 
