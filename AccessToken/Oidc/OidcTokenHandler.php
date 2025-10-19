@@ -74,12 +74,8 @@ final class OidcTokenHandler implements AccessTokenHandlerInterface
     /**
      * @param HttpClientInterface|HttpClientInterface[] $client
      */
-    public function enableDiscovery(CacheInterface $cache, array|HttpClientInterface $client, string $oidcConfigurationCacheKey, ?string $oidcJWKSetCacheKey = null): void
+    public function enableDiscovery(CacheInterface $cache, array|HttpClientInterface $client, string $oidcConfigurationCacheKey): void
     {
-        if (null !== $oidcJWKSetCacheKey) {
-            trigger_deprecation('symfony/security-http', '7.4', 'Passing $oidcJWKSetCacheKey parameter to "%s()" is deprecated.', __METHOD__);
-        }
-
         $this->discoveryCache = $cache;
         $this->discoveryClients = \is_array($client) ? $client : [$client];
         $this->oidcConfigurationCacheKey = $oidcConfigurationCacheKey;
