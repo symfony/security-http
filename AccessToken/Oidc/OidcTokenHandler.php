@@ -35,6 +35,7 @@ use Symfony\Component\Security\Http\AccessToken\Oidc\Exception\MissingClaimExcep
 use Symfony\Component\Security\Http\Authenticator\FallbackUserLoader;
 use Symfony\Component\Security\Http\Authenticator\Passport\Badge\UserBadge;
 use Symfony\Contracts\Cache\CacheInterface;
+use Symfony\Contracts\Cache\ItemInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 /**
@@ -107,43 +108,7 @@ final class OidcTokenHandler implements AccessTokenHandlerInterface
 
         $jwkset = $this->signatureKeyset;
         if ($this->discoveryClients) {
-            $clients = $this->discoveryClients;
-            $logger = $this->logger;
-            $keys = $this->discoveryCache->get($this->oidcConfigurationCacheKey, static function () use ($clients, $logger): array {
-                try {
-                    $configResponses = [];
-                    foreach ($clients as $client) {
-                        $configResponses[] = $client->request('GET', '.well-known/openid-configuration', [
-                            'user_data' => $client,
-                        ]);
-                    }
-
-                    $jwkSetResponses = [];
-                    foreach ($client->stream($configResponses) as $response => $chunk) {
-                        if ($chunk->isLast()) {
-                            $jwkSetResponses[] = $response->getInfo('user_data')->request('GET', $response->toArray()['jwks_uri']);
-                        }
-                    }
-
-                    $keys = [];
-                    foreach ($jwkSetResponses as $response) {
-                        foreach ($response->toArray()['keys'] as $key) {
-                            if ('sig' === $key['use']) {
-                                $keys[] = $key;
-                            }
-                        }
-                    }
-
-                    return $keys;
-                } catch (\Exception $e) {
-                    $logger?->error('An error occurred while requesting OIDC certs.', [
-                        'error' => $e->getMessage(),
-                        'trace' => $e->getTraceAsString(),
-                    ]);
-
-                    throw new BadCredentialsException('Invalid credentials.', $e->getCode(), $e);
-                }
-            });
+            $keys = $this->discoveryCache->get($this->oidcConfigurationCacheKey, [$this, 'computeDiscoveryKeys']);
 
             $jwkset = JWKSet::createFromKeyData(['keys' => $keys]);
         }
@@ -169,6 +134,70 @@ final class OidcTokenHandler implements AccessTokenHandlerInterface
                 'trace' => $e->getTraceAsString(),
             ]);
 
+            throw new BadCredentialsException('Invalid credentials.', $e->getCode(), $e);
+        }
+    }
+
+    /**
+     * Computes the JWKS and sets the cache item TTL from provider headers.
+     *
+     * The cache entry lifetime is automatically adjusted based on the lowest TTL
+     * advertised by the providers (via "Cache-Control: max-age" or "Expires" headers).
+     *
+     * @internal this method is public to enable async offline cache population
+     */
+    public function computeDiscoveryKeys(ItemInterface $item): array
+    {
+        $clients = $this->discoveryClients;
+        $logger = $this->logger;
+
+        try {
+            $configResponses = [];
+            foreach ($clients as $client) {
+                $configResponses[] = $client->request('GET', '.well-known/openid-configuration', [
+                    'user_data' => $client,
+                ]);
+            }
+
+            $jwkSetResponses = [];
+            foreach ($client->stream($configResponses) as $response => $chunk) {
+                if ($chunk->isLast()) {
+                    $jwkSetResponses[] = $response->getInfo('user_data')->request('GET', $response->toArray()['jwks_uri']);
+                }
+            }
+            $keys = [];
+            $minTtl = null;
+            foreach ($jwkSetResponses as $response) {
+                $headers = $response->getHeaders();
+                if (preg_match('/max-age=(\d+)/', $headers['cache-control'][0] ?? '', $m)) {
+                    $currentTtl = (int) $m[1];
+                } elseif (0 >= $currentTtl = strtotime($headers['expires'][0] ?? '@0') - time()) {
+                    $currentTtl = null;
+                }
+
+                // Apply the lowest TTL found to ensure all keys in the set are still valid
+                if (null !== $currentTtl && (null === $minTtl || $currentTtl < $minTtl)) {
+                    $minTtl = $currentTtl;
+                }
+
+                foreach ($response->toArray()['keys'] as $key) {
+                    if ('sig' === $key['use']) {
+                        $keys[] = $key;
+                    }
+                }
+            }
+
+            if (0 < ($minTtl ?? -1)) {
+                // Cap the TTL to 30 days to avoid keeping JWKS indefinitely
+                $item->expiresAfter(min($minTtl, 30 * 24 * 60 * 60));
+            }
+
+            return $keys;
+        } catch (\Exception $e) {
+            $logger?->error('An error occurred while requesting OIDC certs.', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
             throw new BadCredentialsException('Invalid credentials.', $e->getCode(), $e);
         }
     }
