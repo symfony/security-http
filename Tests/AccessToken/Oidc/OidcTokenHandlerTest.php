@@ -311,4 +311,83 @@ class OidcTokenHandlerTest extends TestCase
             ->build()
         );
     }
+
+    public function testDiscoveryCachesJwksAccordingToCacheControl()
+    {
+        $time = time();
+        $claims = [
+            'iat' => $time, 'nbf' => $time,
+            'exp' => $time + 3600,
+            'iss' => 'https://www.example.com',
+            'aud' => self::AUDIENCE,
+            'sub' => 'user-cache-control',
+        ];
+        $token = self::buildJWS(json_encode($claims));
+
+        $requestCount = 0;
+        $httpClient = new MockHttpClient(function ($method, $url) use (&$requestCount) {
+            ++$requestCount;
+            if (str_contains($url, 'openid-configuration')) {
+                return new JsonMockResponse(['jwks_uri' => 'https://www.example.com/jwks.json']);
+            }
+
+            return new JsonMockResponse(
+                ['keys' => [array_merge(self::getJWK()->all(), ['use' => 'sig'])]],
+                ['response_headers' => ['Cache-Control' => 'public, max-age=120']]
+            );
+        });
+
+        $cache = new ArrayAdapter();
+        $handler = new OidcTokenHandler(
+            new AlgorithmManager([new ES256()]),
+            null,
+            self::AUDIENCE,
+            ['https://www.example.com']
+        );
+        $handler->enableDiscovery($cache, $httpClient, 'oidc_ttl_cc');
+        $this->assertSame('user-cache-control', $handler->getUserBadgeFrom($token)->getUserIdentifier());
+        $this->assertSame(2, $requestCount);
+        $this->assertSame('user-cache-control', $handler->getUserBadgeFrom($token)->getUserIdentifier());
+        $this->assertSame(2, $requestCount);
+    }
+
+    public function testDiscoveryCachesJwksAccordingToExpires()
+    {
+        $time = time();
+        $claims = [
+            'iat' => $time, 'nbf' => $time,
+            'exp' => $time + 3600,
+            'iss' => 'https://www.example.com',
+            'aud' => self::AUDIENCE,
+            'sub' => 'user-expires',
+        ];
+
+        $token = self::buildJWS(json_encode($claims));
+
+        $requestCount = 0;
+        $httpClient = new MockHttpClient(function ($method, $url) use (&$requestCount) {
+            ++$requestCount;
+            if (str_contains($url, 'openid-configuration')) {
+                return new JsonMockResponse(['jwks_uri' => 'https://www.example.com/jwks.json']);
+            }
+
+            return new JsonMockResponse(
+                ['keys' => [array_merge(self::getJWK()->all(), ['use' => 'sig'])]],
+                ['response_headers' => ['Expires' => gmdate('D, d M Y H:i:s \G\M\T', time() + 60)]]
+            );
+        });
+
+        $cache = new ArrayAdapter();
+        $handler = new OidcTokenHandler(
+            new AlgorithmManager([new ES256()]),
+            null,
+            self::AUDIENCE,
+            ['https://www.example.com']
+        );
+        $handler->enableDiscovery($cache, $httpClient, 'oidc_ttl_expires');
+        $this->assertSame('user-expires', $handler->getUserBadgeFrom($token)->getUserIdentifier());
+        $this->assertSame(2, $requestCount);
+        $this->assertSame('user-expires', $handler->getUserBadgeFrom($token)->getUserIdentifier());
+        $this->assertSame(2, $requestCount);
+    }
 }
