@@ -28,6 +28,7 @@ use Symfony\Component\Security\Core\Exception\BadCredentialsException;
 use Symfony\Component\Security\Core\User\OidcUser;
 use Symfony\Component\Security\Http\AccessToken\Oidc\OidcTokenHandler;
 use Symfony\Component\Security\Http\Authenticator\Passport\Badge\UserBadge;
+use Symfony\Contracts\Cache\ItemInterface;
 
 #[RequiresPhpExtension('openssl')]
 class OidcTokenHandlerTest extends TestCase
@@ -316,7 +317,8 @@ class OidcTokenHandlerTest extends TestCase
     {
         $time = time();
         $claims = [
-            'iat' => $time, 'nbf' => $time,
+            'iat' => $time,
+            'nbf' => $time,
             'exp' => $time + 3600,
             'iss' => 'https://www.example.com',
             'aud' => self::AUDIENCE,
@@ -355,7 +357,8 @@ class OidcTokenHandlerTest extends TestCase
     {
         $time = time();
         $claims = [
-            'iat' => $time, 'nbf' => $time,
+            'iat' => $time,
+            'nbf' => $time,
             'exp' => $time + 3600,
             'iss' => 'https://www.example.com',
             'aud' => self::AUDIENCE,
@@ -389,5 +392,81 @@ class OidcTokenHandlerTest extends TestCase
         $this->assertSame(2, $requestCount);
         $this->assertSame('user-expires', $handler->getUserBadgeFrom($token)->getUserIdentifier());
         $this->assertSame(2, $requestCount);
+    }
+
+    public function testComputeDiscoveryKeysReturnsEmptyWhenNoClients()
+    {
+        $cache = new ArrayAdapter();
+        $handler = new OidcTokenHandler(
+            new AlgorithmManager([new ES256()]),
+            null,
+            self::AUDIENCE,
+            ['https://www.example.com']
+        );
+
+        $handler->enableDiscovery($cache, [], 'oidc_empty_clients');
+
+        $item = $this->createMock(ItemInterface::class);
+        $item->expects($this->never())->method('expiresAfter');
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('No OIDC discovery client configured.');
+        $handler->computeDiscoveryKeys($item);
+    }
+
+    public function testDiscoveryThrowsWhenJwksUriIsMissing()
+    {
+        $time = time();
+        $claims = [
+            'iat' => $time,
+            'nbf' => $time,
+            'exp' => $time + 3600,
+            'iss' => 'https://www.example.com',
+            'aud' => self::AUDIENCE,
+            'sub' => 'user-missing-jwks-uri',
+        ];
+        $token = self::buildJWS(json_encode($claims));
+
+        $httpClient = new MockHttpClient([
+            new JsonMockResponse(['issuer' => 'https://www.example.com']),
+        ]);
+
+        $cache = new ArrayAdapter();
+        $handler = new OidcTokenHandler(
+            new AlgorithmManager([new ES256()]),
+            null,
+            self::AUDIENCE,
+            ['https://www.example.com']
+        );
+        $handler->enableDiscovery($cache, $httpClient, 'oidc_missing_jwks_uri');
+
+        $this->expectException(BadCredentialsException::class);
+        $handler->getUserBadgeFrom($token);
+    }
+
+    public function testDiscoveryIgnoresNonSignatureKeys()
+    {
+        $httpClient = new MockHttpClient([
+            new JsonMockResponse(['jwks_uri' => 'https://www.example.com/jwks.json']),
+            new JsonMockResponse([
+                'keys' => [
+                    array_merge(self::getJWK()->all(), ['use' => 'enc']),
+                    array_merge(self::getSecondJWK()->all(), []),
+                ],
+            ]),
+        ]);
+
+        $cache = new ArrayAdapter();
+        $handler = new OidcTokenHandler(
+            new AlgorithmManager([new ES256()]),
+            null,
+            self::AUDIENCE,
+            ['https://www.example.com']
+        );
+        $handler->enableDiscovery($cache, $httpClient, 'oidc_non_sig_keys');
+
+        $item = $this->createMock(ItemInterface::class);
+        $item->expects($this->never())->method('expiresAfter');
+        $this->assertSame([], $handler->computeDiscoveryKeys($item));
     }
 }
