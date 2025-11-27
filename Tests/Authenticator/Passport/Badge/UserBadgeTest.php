@@ -15,6 +15,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\IgnoreDeprecations;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Security\Core\Exception\BadCredentialsException;
 use Symfony\Component\Security\Core\Exception\UserNotFoundException;
 use Symfony\Component\Security\Http\Authenticator\Passport\Badge\UserBadge;
 use Symfony\Component\String\Slugger\AsciiSlugger;
@@ -65,5 +66,26 @@ class UserBadgeTest extends TestCase
         $upperAndAscii = fn (string $identifier) => u($identifier)->ascii()->upper()->toString();
         yield 'Greek to ASCII' => ['ΝιΚόΛΑος', 'NIKOLAOS', $upperAndAscii];
         yield 'Katakana to ASCII' => ['たなかそういち', 'TANAKASOUICHI', $upperAndAscii];
+    }
+
+    #[IgnoreDeprecations]
+    #[Group('legacy')]
+    public function testUserIdentifierNormalizationTriggersDeprecationForEmptyString()
+    {
+        $badge = new UserBadge('valid_input', null, null, fn () => '');
+
+        $this->expectUserDeprecationMessage('Since symfony/security-http 7.2: Using an empty string as user identifier is deprecated and will throw an exception in Symfony 8.0.');
+
+        $this->assertSame('', $badge->getUserIdentifier());
+    }
+
+    public function testUserIdentifierNormalizationEnforcesMaxLength()
+    {
+        $badge = new UserBadge('valid_input', null, null, fn () => str_repeat('a', UserBadge::MAX_USERNAME_LENGTH + 1));
+
+        $this->expectException(BadCredentialsException::class);
+        $this->expectExceptionMessage('Username too long.');
+
+        $badge->getUserIdentifier();
     }
 }
