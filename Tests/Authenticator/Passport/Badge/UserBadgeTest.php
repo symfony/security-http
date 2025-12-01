@@ -62,4 +62,14 @@ class UserBadgeTest extends TestCase
         yield 'Greek to ASCII' => ['ΝιΚόΛΑος', 'NIKOLAOS', $upperAndAscii];
         yield 'Katakana to ASCII' => ['たなかそういち', 'TANAKASOUICHI', $upperAndAscii];
     }
+
+    public function testUserIdentifierNormalizationEnforcesMaxLength()
+    {
+        $badge = new UserBadge('valid_input', null, null, fn () => str_repeat('a', UserBadge::MAX_USERNAME_LENGTH + 1));
+
+        $this->expectException(BadCredentialsException::class);
+        $this->expectExceptionMessage('Username too long.');
+
+        $badge->getUserIdentifier();
+    }
 }
