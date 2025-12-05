@@ -149,24 +149,31 @@ final class OidcTokenHandler implements AccessTokenHandlerInterface
     public function computeDiscoveryKeys(ItemInterface $item): array
     {
         $clients = $this->discoveryClients;
+        if (!$clients) {
+            throw new \LogicException('No OIDC discovery client configured.');
+        }
         $logger = $this->logger;
-
         try {
-            $configResponses = [];
-            foreach ($clients as $client) {
-                $configResponses[] = $client->request('GET', '.well-known/openid-configuration', [
-                    'user_data' => $client,
-                ]);
-            }
-
-            $jwkSetResponses = [];
-            foreach ($client->stream($configResponses) as $response => $chunk) {
-                if ($chunk->isLast()) {
-                    $jwkSetResponses[] = $response->getInfo('user_data')->request('GET', $response->toArray()['jwks_uri']);
-                }
-            }
             $keys = [];
             $minTtl = null;
+            $configResponses = [];
+            $jwkSetResponses = [];
+
+            foreach ($clients as $client) {
+                $configResponses[] = [$client, $client->request('GET', '.well-known/openid-configuration')];
+            }
+
+            foreach ($configResponses as [$client, $response]) {
+                $config = $response->toArray();
+
+                $jwksUri = $config['jwks_uri'] ?? null;
+                if (!\is_string($jwksUri) || '' === $jwksUri) {
+                    throw new \RuntimeException('The "jwks_uri" is missing from the OIDC discovery document.');
+                }
+
+                $jwkSetResponses[] = $client->request('GET', $jwksUri);
+            }
+
             foreach ($jwkSetResponses as $response) {
                 $headers = $response->getHeaders();
                 if (preg_match('/max-age=(\d+)/', $headers['cache-control'][0] ?? '', $m)) {
@@ -181,7 +188,7 @@ final class OidcTokenHandler implements AccessTokenHandlerInterface
                 }
 
                 foreach ($response->toArray()['keys'] as $key) {
-                    if ('sig' === $key['use']) {
+                    if ('sig' === ($key['use'] ?? null)) {
                         $keys[] = $key;
                     }
                 }
@@ -198,6 +205,7 @@ final class OidcTokenHandler implements AccessTokenHandlerInterface
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
+
             throw new BadCredentialsException('Invalid credentials.', $e->getCode(), $e);
         }
     }
