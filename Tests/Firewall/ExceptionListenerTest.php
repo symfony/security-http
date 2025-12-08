@@ -19,8 +19,9 @@ use Symfony\Component\HttpKernel\Event\ExceptionEvent;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
 use Symfony\Component\Security\Core\Authentication\AuthenticationTrustResolverInterface;
+use Symfony\Component\Security\Core\Authentication\Token\NullToken;
+use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorage;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
-use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 use Symfony\Component\Security\Core\Exception\AuthenticationException;
 use Symfony\Component\Security\Core\Exception\LogoutException;
@@ -117,8 +118,8 @@ class ExceptionListenerTest extends TestCase
      */
     public function testAccessDeniedExceptionFullFledgedAndWithoutAccessDeniedHandlerAndWithErrorPage(\Exception $exception, ?\Exception $eventException = null)
     {
-        $kernel = $this->createMock(HttpKernelInterface::class);
-        $kernel->expects($this->once())->method('handle')->willReturn(new Response('Unauthorized', 401));
+        $kernel = $this->createStub(HttpKernelInterface::class);
+        $kernel->method('handle')->willReturn(new Response('Unauthorized', 401));
 
         $event = $this->createEvent($exception, $kernel);
 
@@ -160,7 +161,7 @@ class ExceptionListenerTest extends TestCase
         $event = $this->createEvent($exception);
 
         $tokenStorage = $this->createMock(TokenStorageInterface::class);
-        $tokenStorage->expects($this->once())->method('getToken')->willReturn($this->createMock(TokenInterface::class));
+        $tokenStorage->expects($this->once())->method('getToken')->willReturn(new NullToken());
 
         $listener = $this->createExceptionListener($tokenStorage, $this->createTrustResolver(false), null, $this->createEntryPoint());
         $listener->onKernelException($event);
@@ -221,7 +222,7 @@ class ExceptionListenerTest extends TestCase
 
     private function createEvent(\Exception $exception, $kernel = null)
     {
-        $kernel ??= $this->createMock(HttpKernelInterface::class);
+        $kernel ??= $this->createStub(HttpKernelInterface::class);
 
         return new ExceptionEvent($kernel, Request::create('/'), HttpKernelInterface::MAIN_REQUEST, $exception);
     }
@@ -229,9 +230,9 @@ class ExceptionListenerTest extends TestCase
     private function createExceptionListener(?TokenStorageInterface $tokenStorage = null, ?AuthenticationTrustResolverInterface $trustResolver = null, ?HttpUtils $httpUtils = null, ?AuthenticationEntryPointInterface $authenticationEntryPoint = null, $errorPage = null, ?AccessDeniedHandlerInterface $accessDeniedHandler = null)
     {
         return new ExceptionListener(
-            $tokenStorage ?? $this->createMock(TokenStorageInterface::class),
-            $trustResolver ?? $this->createMock(AuthenticationTrustResolverInterface::class),
-            $httpUtils ?? $this->createMock(HttpUtils::class),
+            $tokenStorage ?? new TokenStorage(),
+            $trustResolver ?? $this->createStub(AuthenticationTrustResolverInterface::class),
+            $httpUtils ?? new HttpUtils(),
             'key',
             $authenticationEntryPoint,
             $errorPage,

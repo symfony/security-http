@@ -14,7 +14,7 @@ namespace Symfony\Component\Security\Http\Tests\Session;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Session\SessionInterface;
-use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
+use Symfony\Component\Security\Core\Authentication\Token\NullToken;
 use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 use Symfony\Component\Security\Http\Session\SessionAuthenticationStrategy;
 
@@ -22,22 +22,22 @@ class SessionAuthenticationStrategyTest extends TestCase
 {
     public function testSessionIsNotChanged()
     {
-        $request = $this->getRequest();
+        $request = $this->createMock(Request::class);
         $request->expects($this->never())->method('getSession');
 
         $strategy = new SessionAuthenticationStrategy(SessionAuthenticationStrategy::NONE);
-        $strategy->onAuthentication($request, $this->createMock(TokenInterface::class));
+        $strategy->onAuthentication($request, new NullToken());
     }
 
     public function testUnsupportedStrategy()
     {
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('Invalid session authentication strategy "foo"');
-        $request = $this->getRequest();
+        $request = $this->createMock(Request::class);
         $request->expects($this->never())->method('getSession');
 
         $strategy = new SessionAuthenticationStrategy('foo');
-        $strategy->onAuthentication($request, $this->createMock(TokenInterface::class));
+        $strategy->onAuthentication($request, new NullToken());
     }
 
     public function testSessionIsMigrated()
@@ -46,7 +46,7 @@ class SessionAuthenticationStrategyTest extends TestCase
         $session->expects($this->once())->method('migrate')->with($this->equalTo(true));
 
         $strategy = new SessionAuthenticationStrategy(SessionAuthenticationStrategy::MIGRATE);
-        $strategy->onAuthentication($this->getRequest($session), $this->createMock(TokenInterface::class));
+        $strategy->onAuthentication($this->getRequest($session), new NullToken());
     }
 
     public function testSessionIsInvalidated()
@@ -55,7 +55,7 @@ class SessionAuthenticationStrategyTest extends TestCase
         $session->expects($this->once())->method('invalidate');
 
         $strategy = new SessionAuthenticationStrategy(SessionAuthenticationStrategy::INVALIDATE);
-        $strategy->onAuthentication($this->getRequest($session), $this->createMock(TokenInterface::class));
+        $strategy->onAuthentication($this->getRequest($session), new NullToken());
     }
 
     public function testCsrfTokensAreCleared()
@@ -67,15 +67,15 @@ class SessionAuthenticationStrategyTest extends TestCase
         $csrfStorage->expects($this->once())->method('clear');
 
         $strategy = new SessionAuthenticationStrategy(SessionAuthenticationStrategy::MIGRATE, $csrfStorage);
-        $strategy->onAuthentication($this->getRequest($session), $this->createMock(TokenInterface::class));
+        $strategy->onAuthentication($this->getRequest($session), new NullToken());
     }
 
     private function getRequest($session = null)
     {
-        $request = $this->createMock(Request::class);
+        $request = new Request();
 
         if (null !== $session) {
-            $request->expects($this->any())->method('getSession')->willReturn($session);
+            $request->setSession($session);
         }
 
         return $request;

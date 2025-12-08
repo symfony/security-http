@@ -13,7 +13,8 @@ namespace Symfony\Component\Security\Http\Tests;
 
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\Session\SessionInterface;
+use Symfony\Component\HttpFoundation\Session\Session;
+use Symfony\Component\HttpFoundation\Session\Storage\MockArraySessionStorage;
 use Symfony\Component\Routing\Exception\MethodNotAllowedException;
 use Symfony\Component\Routing\Exception\ResourceNotFoundException;
 use Symfony\Component\Routing\Generator\UrlGenerator;
@@ -142,18 +143,16 @@ class HttpUtilsTest extends TestCase
 
     public function testCreateRedirectResponseWithRouteName()
     {
-        $utils = new HttpUtils($urlGenerator = $this->createMock(UrlGeneratorInterface::class));
+        $utils = new HttpUtils($urlGenerator = $this->createStub(UrlGeneratorInterface::class));
 
         $urlGenerator
-            ->expects($this->any())
             ->method('generate')
             ->with('foobar', [], UrlGeneratorInterface::ABSOLUTE_URL)
             ->willReturn('http://localhost/foo/bar')
         ;
         $urlGenerator
-            ->expects($this->any())
             ->method('getContext')
-            ->willReturn($this->createMock(RequestContext::class))
+            ->willReturn(new RequestContext())
         ;
 
         $response = $utils->createRedirectResponse($this->getRequest(), 'foobar');
@@ -186,7 +185,7 @@ class HttpUtilsTest extends TestCase
         $urlGenerator
             ->expects($this->any())
             ->method('getContext')
-            ->willReturn($this->createMock(RequestContext::class))
+            ->willReturn(new RequestContext())
         ;
 
         $subRequest = $utils->createRequest($this->getRequest(), 'foobar');
@@ -196,7 +195,7 @@ class HttpUtilsTest extends TestCase
 
     public function testCreateRequestWithAbsoluteUrl()
     {
-        $utils = new HttpUtils($this->createMock(UrlGeneratorInterface::class));
+        $utils = new HttpUtils($this->createStub(UrlGeneratorInterface::class));
         $subRequest = $utils->createRequest($this->getRequest(), 'http://symfony.com/');
 
         $this->assertEquals('/', $subRequest->getPathInfo());
@@ -205,7 +204,7 @@ class HttpUtilsTest extends TestCase
     public function testCreateRequestPassesSessionToTheNewRequest()
     {
         $request = $this->getRequest();
-        $request->setSession($session = $this->createMock(SessionInterface::class));
+        $request->setSession($session = new Session(new MockArraySessionStorage()));
 
         $utils = new HttpUtils($this->getUrlGenerator());
         $subRequest = $utils->createRequest($request, '/foobar');
@@ -279,9 +278,8 @@ class HttpUtilsTest extends TestCase
 
     public function testCheckRequestPathWithUrlMatcherAndResourceNotFound()
     {
-        $urlMatcher = $this->createMock(UrlMatcherInterface::class);
+        $urlMatcher = $this->createStub(UrlMatcherInterface::class);
         $urlMatcher
-            ->expects($this->any())
             ->method('match')
             ->with('/')
             ->willThrowException(new ResourceNotFoundException())
@@ -294,9 +292,8 @@ class HttpUtilsTest extends TestCase
     public function testCheckRequestPathWithUrlMatcherAndMethodNotAllowed()
     {
         $request = $this->getRequest();
-        $urlMatcher = $this->createMock(RequestMatcherInterface::class);
+        $urlMatcher = $this->createStub(RequestMatcherInterface::class);
         $urlMatcher
-            ->expects($this->any())
             ->method('matchRequest')
             ->with($request)
             ->willThrowException(new MethodNotAllowedException([]))
@@ -308,9 +305,8 @@ class HttpUtilsTest extends TestCase
 
     public function testCheckRequestPathWithUrlMatcherAndResourceFoundByUrl()
     {
-        $urlMatcher = $this->createMock(UrlMatcherInterface::class);
+        $urlMatcher = $this->createStub(UrlMatcherInterface::class);
         $urlMatcher
-            ->expects($this->any())
             ->method('match')
             ->with('/foo/bar')
             ->willReturn(['_route' => 'foobar'])
@@ -323,9 +319,8 @@ class HttpUtilsTest extends TestCase
     public function testCheckRequestPathWithUrlMatcherAndResourceFoundByRequest()
     {
         $request = $this->getRequest();
-        $urlMatcher = $this->createMock(RequestMatcherInterface::class);
+        $urlMatcher = $this->createStub(RequestMatcherInterface::class);
         $urlMatcher
-            ->expects($this->any())
             ->method('matchRequest')
             ->with($request)
             ->willReturn(['_route' => 'foobar'])
@@ -338,9 +333,8 @@ class HttpUtilsTest extends TestCase
     public function testCheckRequestPathWithUrlMatcherLoadingException()
     {
         $this->expectException(\RuntimeException::class);
-        $urlMatcher = $this->createMock(UrlMatcherInterface::class);
+        $urlMatcher = $this->createStub(UrlMatcherInterface::class);
         $urlMatcher
-            ->expects($this->any())
             ->method('match')
             ->willThrowException(new \RuntimeException())
         ;
@@ -367,9 +361,8 @@ class HttpUtilsTest extends TestCase
 
     public function testCheckPathWithoutRouteParam()
     {
-        $urlMatcher = $this->createMock(UrlMatcherInterface::class);
+        $urlMatcher = $this->createStub(UrlMatcherInterface::class);
         $urlMatcher
-            ->expects($this->any())
             ->method('match')
             ->willReturn(['_controller' => 'PathController'])
         ;
@@ -406,9 +399,8 @@ class HttpUtilsTest extends TestCase
 
     private function getUrlGenerator($generatedUrl = '/foo/bar')
     {
-        $urlGenerator = $this->createMock(UrlGeneratorInterface::class);
+        $urlGenerator = $this->createStub(UrlGeneratorInterface::class);
         $urlGenerator
-            ->expects($this->any())
             ->method('generate')
             ->willReturn($generatedUrl)
         ;

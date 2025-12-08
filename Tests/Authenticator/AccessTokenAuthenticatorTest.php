@@ -9,7 +9,7 @@
  * file that was distributed with this source code.
  */
 
-namespace Authenticator;
+namespace Symfony\Component\Security\Http\Tests\Authenticator;
 
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Request;
@@ -25,14 +25,10 @@ use Symfony\Component\Security\Http\Authenticator\Passport\Badge\UserBadge;
 
 class AccessTokenAuthenticatorTest extends TestCase
 {
-    private AccessTokenHandlerInterface $accessTokenHandler;
-    private AccessTokenExtractorInterface $accessTokenExtractor;
     private InMemoryUserProvider $userProvider;
 
     protected function setUp(): void
     {
-        $this->accessTokenHandler = $this->createMock(AccessTokenHandlerInterface::class);
-        $this->accessTokenExtractor = $this->createMock(AccessTokenExtractorInterface::class);
         $this->userProvider = new InMemoryUserProvider(['test' => ['password' => 's$cr$t']]);
     }
 
@@ -43,15 +39,16 @@ class AccessTokenAuthenticatorTest extends TestCase
 
         $request = Request::create('/test');
 
-        $this->accessTokenExtractor
+        $accessTokenExtractor = $this->createMock(AccessTokenExtractorInterface::class);
+        $accessTokenExtractor
             ->expects($this->once())
             ->method('extractAccessToken')
             ->with($request)
             ->willReturn(null);
 
         $authenticator = new AccessTokenAuthenticator(
-            $this->accessTokenHandler,
-            $this->accessTokenExtractor,
+            $this->createStub(AccessTokenHandlerInterface::class),
+            $accessTokenExtractor,
         );
 
         $authenticator->authenticate($request);
@@ -61,20 +58,22 @@ class AccessTokenAuthenticatorTest extends TestCase
     {
         $request = Request::create('/test');
 
-        $this->accessTokenExtractor
+        $accessTokenHandler = $this->createMock(AccessTokenHandlerInterface::class);
+        $accessTokenExtractor = $this->createMock(AccessTokenExtractorInterface::class);
+        $accessTokenExtractor
             ->expects($this->once())
             ->method('extractAccessToken')
             ->with($request)
             ->willReturn('test');
-        $this->accessTokenHandler
+        $accessTokenHandler
             ->expects($this->once())
             ->method('getUserBadgeFrom')
             ->with('test')
             ->willReturn(new UserBadge('john', fn () => new InMemoryUser('john', null)));
 
         $authenticator = new AccessTokenAuthenticator(
-            $this->accessTokenHandler,
-            $this->accessTokenExtractor,
+            $accessTokenHandler,
+            $accessTokenExtractor,
             $this->userProvider,
         );
 
@@ -87,20 +86,22 @@ class AccessTokenAuthenticatorTest extends TestCase
     {
         $request = Request::create('/test');
 
-        $this->accessTokenExtractor
+        $accessTokenHandler = $this->createMock(AccessTokenHandlerInterface::class);
+        $accessTokenExtractor = $this->createMock(AccessTokenExtractorInterface::class);
+        $accessTokenExtractor
             ->expects($this->once())
             ->method('extractAccessToken')
             ->with($request)
             ->willReturn('test');
-        $this->accessTokenHandler
+        $accessTokenHandler
             ->expects($this->once())
             ->method('getUserBadgeFrom')
             ->with('test')
             ->willReturn(new UserBadge('test'));
 
         $authenticator = new AccessTokenAuthenticator(
-            $this->accessTokenHandler,
-            $this->accessTokenExtractor,
+            $accessTokenHandler,
+            $accessTokenExtractor,
             $this->userProvider,
         );
 
@@ -113,20 +114,22 @@ class AccessTokenAuthenticatorTest extends TestCase
     {
         $request = Request::create('/test');
 
-        $this->accessTokenExtractor
+        $accessTokenHandler = $this->createMock(AccessTokenHandlerInterface::class);
+        $accessTokenExtractor = $this->createMock(AccessTokenExtractorInterface::class);
+        $accessTokenExtractor
             ->expects($this->once())
             ->method('extractAccessToken')
             ->with($request)
             ->willReturn('test');
-        $this->accessTokenHandler
+        $accessTokenHandler
             ->expects($this->once())
             ->method('getUserBadgeFrom')
             ->with('test')
             ->willReturn(new UserBadge('john', fn () => new InMemoryUser('john', null)));
 
         $authenticator = new AccessTokenAuthenticator(
-            $this->accessTokenHandler,
-            $this->accessTokenExtractor,
+            $accessTokenHandler,
+            $accessTokenExtractor,
             $this->userProvider,
         );
 
@@ -139,20 +142,22 @@ class AccessTokenAuthenticatorTest extends TestCase
     {
         $request = Request::create('/test');
 
-        $this->accessTokenExtractor
+        $accessTokenHandler = $this->createMock(AccessTokenHandlerInterface::class);
+        $accessTokenExtractor = $this->createMock(AccessTokenExtractorInterface::class);
+        $accessTokenExtractor
             ->expects($this->once())
             ->method('extractAccessToken')
             ->with($request)
             ->willReturn('test');
-        $this->accessTokenHandler
+        $accessTokenHandler
             ->expects($this->once())
             ->method('getUserBadgeFrom')
             ->with('test')
             ->willReturn(new UserBadge('test', new FallbackUserLoader(fn () => new InMemoryUser('john', null))));
 
         $authenticator = new AccessTokenAuthenticator(
-            $this->accessTokenHandler,
-            $this->accessTokenExtractor,
+            $accessTokenHandler,
+            $accessTokenExtractor,
             $this->userProvider,
         );
 

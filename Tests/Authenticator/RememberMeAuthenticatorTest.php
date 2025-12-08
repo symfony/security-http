@@ -11,7 +11,6 @@
 
 namespace Symfony\Component\Security\Http\Tests\Authenticator;
 
-use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Cookie;
 use Symfony\Component\HttpFoundation\Request;
@@ -26,13 +25,13 @@ use Symfony\Component\Security\Http\RememberMe\ResponseListener;
 
 class RememberMeAuthenticatorTest extends TestCase
 {
-    private MockObject&RememberMeHandlerInterface $rememberMeHandler;
+    private RememberMeHandlerInterface $rememberMeHandler;
     private TokenStorage $tokenStorage;
     private RememberMeAuthenticator $authenticator;
 
     protected function setUp(): void
     {
-        $this->rememberMeHandler = $this->createMock(RememberMeHandlerInterface::class);
+        $this->rememberMeHandler = $this->createStub(RememberMeHandlerInterface::class);
         $this->tokenStorage = new TokenStorage();
         $this->authenticator = new RememberMeAuthenticator($this->rememberMeHandler, 's3cr3t', $this->tokenStorage, '_remember_me_cookie');
     }
@@ -69,11 +68,12 @@ class RememberMeAuthenticatorTest extends TestCase
 
     public function testAuthenticate()
     {
+        $rememberMeHandler = $this->createMock(RememberMeHandlerInterface::class);
         $rememberMeDetails = new RememberMeDetails(InMemoryUser::class, 'wouter', 1, 'secret');
         $request = Request::create('/', 'GET', [], ['_remember_me_cookie' => $rememberMeDetails->toString()]);
-        $passport = $this->authenticator->authenticate($request);
+        $passport = (new RememberMeAuthenticator($rememberMeHandler, 's3cr3t', $this->tokenStorage, '_remember_me_cookie'))->authenticate($request);
 
-        $this->rememberMeHandler->expects($this->once())->method('consumeRememberMeCookie')->with($this->callback(fn ($arg) => $rememberMeDetails == $arg));
+        $rememberMeHandler->expects($this->once())->method('consumeRememberMeCookie')->with($this->callback(fn ($arg) => $rememberMeDetails == $arg));
         $passport->getUser(); // trigger the user loader
     }
 
