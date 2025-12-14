@@ -44,19 +44,19 @@ class OidcTokenGenerator
         $now = $this->clock->now();
         $payload = [
             $this->claim => $userIdentifier,
-            'iat' => $now->getTimestamp(), # https://datatracker.ietf.org/doc/html/rfc7519#section-4.1.6
-            'aud' => $this->audience, # https://datatracker.ietf.org/doc/html/rfc7519#section-4.1.3
-            'iss' => $this->getIssuer($issuer), # https://datatracker.ietf.org/doc/html/rfc7519#section-4.1.1
+            'iat' => $now->getTimestamp(), // https://datatracker.ietf.org/doc/html/rfc7519#section-4.1.6
+            'aud' => $this->audience, // https://datatracker.ietf.org/doc/html/rfc7519#section-4.1.3
+            'iss' => $this->getIssuer($issuer), // https://datatracker.ietf.org/doc/html/rfc7519#section-4.1.1
         ];
         if ($ttl) {
             if (0 > $ttl) {
                 throw new \InvalidArgumentException('Time to live must be a positive integer.');
             }
 
-            $payload['exp'] = $now->add(new \DateInterval("PT{$ttl}S"))->getTimestamp(); # https://datatracker.ietf.org/doc/html/rfc7519#section-4.1.4
+            $payload['exp'] = $now->add(new \DateInterval("PT{$ttl}S"))->getTimestamp(); // https://datatracker.ietf.org/doc/html/rfc7519#section-4.1.4
         }
         if ($notBefore) {
-            $payload['nbf'] = $notBefore->getTimestamp(); # https://datatracker.ietf.org/doc/html/rfc7519#section-4.1.5
+            $payload['nbf'] = $notBefore->getTimestamp(); // https://datatracker.ietf.org/doc/html/rfc7519#section-4.1.5
         }
 
         $jws = $jwsBuilder
@@ -74,13 +74,14 @@ class OidcTokenGenerator
     {
         if ($alias) {
             if (!$this->algorithmManager->has($alias)) {
-                throw new \InvalidArgumentException(sprintf('"%s" is not a valid algorithm. Available algorithms: "%s".', $alias, implode('", "', $this->algorithmManager->list())));
+                throw new \InvalidArgumentException(\sprintf('"%s" is not a valid algorithm. Available algorithms: "%s".', $alias, implode('", "', $this->algorithmManager->list())));
             }
+
             return $this->algorithmManager->get($alias);
         }
 
-        if (1 !== count($list = $this->algorithmManager->list())) {
-            throw new \InvalidArgumentException(sprintf('Please choose an algorithm. Available algorithms: "%s".', implode('", "', $list)));
+        if (1 !== \count($list = $this->algorithmManager->list())) {
+            throw new \InvalidArgumentException(\sprintf('Please choose an algorithm. Available algorithms: "%s".', implode('", "', $list)));
         }
 
         return $this->algorithmManager->get($list[0]);
@@ -89,15 +90,15 @@ class OidcTokenGenerator
     private function getIssuer(?string $issuer): string
     {
         if ($issuer) {
-            if (!in_array($issuer, $this->issuers, true)) {
-                throw new \InvalidArgumentException(sprintf('"%s" is not a valid issuer. Available issuers: "%s".', $issuer, implode('", "', $this->issuers)));
+            if (!\in_array($issuer, $this->issuers, true)) {
+                throw new \InvalidArgumentException(\sprintf('"%s" is not a valid issuer. Available issuers: "%s".', $issuer, implode('", "', $this->issuers)));
             }
 
             return $issuer;
         }
 
-        if (1 !== count($this->issuers)) {
-            throw new \InvalidArgumentException(sprintf('Please choose an issuer. Available issuers: "%s".', implode('", "', $this->issuers)));
+        if (1 !== \count($this->issuers)) {
+            throw new \InvalidArgumentException(\sprintf('Please choose an issuer. Available issuers: "%s".', implode('", "', $this->issuers)));
         }
 
         return $this->issuers[0];
