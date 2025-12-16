@@ -25,7 +25,7 @@ class UserBadgeTest extends TestCase
 {
     public function testUserNotFound()
     {
-        $badge = new UserBadge('dummy', fn () => null);
+        $badge = new UserBadge('dummy', static fn () => null);
         $this->expectException(UserNotFoundException::class);
         $badge->getUser();
     }
@@ -33,13 +33,13 @@ class UserBadgeTest extends TestCase
     public function testEmptyUserIdentifier()
     {
         $this->expectException(BadCredentialsException::class);
-        new UserBadge('', fn () => null);
+        new UserBadge('', static fn () => null);
     }
 
     #[DataProvider('provideUserIdentifierNormalizationData')]
     public function testUserIdentifierNormalization(string $identifier, string $expectedNormalizedIdentifier, callable $normalizer)
     {
-        $badge = new UserBadge($identifier, fn () => null, identifierNormalizer: $normalizer);
+        $badge = new UserBadge($identifier, static fn () => null, identifierNormalizer: $normalizer);
 
         static::assertSame($expectedNormalizedIdentifier, $badge->getUserIdentifier());
     }
@@ -58,14 +58,14 @@ class UserBadgeTest extends TestCase
         if (!\extension_loaded('intl')) {
             return;
         }
-        $upperAndAscii = fn (string $identifier) => u($identifier)->ascii()->upper()->toString();
+        $upperAndAscii = static fn (string $identifier) => u($identifier)->ascii()->upper()->toString();
         yield 'Greek to ASCII' => ['ΝιΚόΛΑος', 'NIKOLAOS', $upperAndAscii];
         yield 'Katakana to ASCII' => ['たなかそういち', 'TANAKASOUICHI', $upperAndAscii];
     }
 
     public function testUserIdentifierNormalizationEnforcesMaxLength()
     {
-        $badge = new UserBadge('valid_input', null, null, fn () => str_repeat('a', UserBadge::MAX_USERNAME_LENGTH + 1));
+        $badge = new UserBadge('valid_input', null, null, static fn () => str_repeat('a', UserBadge::MAX_USERNAME_LENGTH + 1));
 
         $this->expectException(BadCredentialsException::class);
         $this->expectExceptionMessage('Username too long.');

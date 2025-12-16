@@ -221,7 +221,7 @@ class IsGrantedAttributeListenerTest extends TestCase
     #[DataProvider('getAccessDeniedMessageTests')]
     public function testAccessDeniedMessages(string|Expression $attribute, string|array|null $subject, string $method, int $numOfArguments, string $expectedMessage)
     {
-        $authChecker = new AuthorizationChecker(new TokenStorage(), new AccessDecisionManager((function () use (&$authChecker) {
+        $authChecker = new AuthorizationChecker(new TokenStorage(), new AccessDecisionManager((static function () use (&$authChecker) {
             yield new ExpressionVoter(new ExpressionLanguage(), null, $authChecker);
             yield new RoleVoter();
             yield new class extends Voter {

@@ -158,7 +158,7 @@ class AuthenticatorManagerTest extends TestCase
 
         $authenticator->expects($this->any())->method('authenticate')->willReturn(new SelfValidatingPassport(new UserBadge('wouter')));
 
-        $authenticator->expects($this->once())->method('onAuthenticationFailure')->with($this->anything(), $this->callback(fn ($exception) => 'Authentication failed; Some badges marked as required by the firewall config are not available on the passport: "'.CsrfTokenBadge::class.'".' === $exception->getMessage()));
+        $authenticator->expects($this->once())->method('onAuthenticationFailure')->with($this->anything(), $this->callback(static fn ($exception) => 'Authentication failed; Some badges marked as required by the firewall config are not available on the passport: "'.CsrfTokenBadge::class.'".' === $exception->getMessage()));
 
         $manager = $this->createManager([$authenticator], 'main', true, [CsrfTokenBadge::class], exposeSecurityErrors: ExposeSecurityLevel::None);
         $manager->authenticateRequest($this->request);
@@ -192,7 +192,7 @@ class AuthenticatorManagerTest extends TestCase
         $modifiedToken = $this->createMock(TokenInterface::class);
         $modifiedToken->expects($this->any())->method('getUser')->willReturn($this->user);
         $listenerCalled = false;
-        $this->eventDispatcher->addListener(AuthenticationTokenCreatedEvent::class, function (AuthenticationTokenCreatedEvent $event) use (&$listenerCalled, $modifiedToken) {
+        $this->eventDispatcher->addListener(AuthenticationTokenCreatedEvent::class, static function (AuthenticationTokenCreatedEvent $event) use (&$listenerCalled, $modifiedToken) {
             $event->setAuthenticatedToken($modifiedToken);
             $listenerCalled = true;
         });
@@ -236,7 +236,7 @@ class AuthenticatorManagerTest extends TestCase
         $modifiedToken = $this->createMock(TokenInterface::class);
         $modifiedToken->expects($this->any())->method('getUser')->willReturn($this->user);
         $listenerCalled = false;
-        $this->eventDispatcher->addListener(AuthenticationTokenCreatedEvent::class, function (AuthenticationTokenCreatedEvent $event) use (&$listenerCalled, $modifiedToken) {
+        $this->eventDispatcher->addListener(AuthenticationTokenCreatedEvent::class, static function (AuthenticationTokenCreatedEvent $event) use (&$listenerCalled, $modifiedToken) {
             $event->setAuthenticatedToken($modifiedToken);
             $listenerCalled = true;
         });
@@ -300,7 +300,7 @@ class AuthenticatorManagerTest extends TestCase
 
         $authenticator->expects($this->any())
             ->method('onAuthenticationFailure')
-            ->with($this->equalTo($this->request), $this->callback(fn ($e) => $e instanceof BadCredentialsException && $invalidUserException === $e->getPrevious()))
+            ->with($this->equalTo($this->request), $this->callback(static fn ($e) => $e instanceof BadCredentialsException && $invalidUserException === $e->getPrevious()))
             ->willReturn($this->response);
 
         $manager = $this->createManager([$authenticator], exposeSecurityErrors: ExposeSecurityLevel::None);
@@ -318,7 +318,7 @@ class AuthenticatorManagerTest extends TestCase
 
         $authenticator->expects($this->any())
             ->method('onAuthenticationFailure')
-            ->with($this->equalTo($this->request), $this->callback(fn ($e) => $e === $invalidUserException))
+            ->with($this->equalTo($this->request), $this->callback(static fn ($e) => $e === $invalidUserException))
             ->willReturn($this->response);
 
         $manager = $this->createManager([$authenticator], exposeSecurityErrors: ExposeSecurityLevel::AccountStatus);
@@ -336,7 +336,7 @@ class AuthenticatorManagerTest extends TestCase
 
         $authenticator->expects($this->any())
             ->method('onAuthenticationFailure')
-            ->with($this->equalTo($this->request), $this->callback(fn ($e) => $e instanceof BadCredentialsException && $invalidUserException === $e->getPrevious()))
+            ->with($this->equalTo($this->request), $this->callback(static fn ($e) => $e instanceof BadCredentialsException && $invalidUserException === $e->getPrevious()))
             ->willReturn($this->response);
 
         $manager = $this->createManager([$authenticator], exposeSecurityErrors: ExposeSecurityLevel::None);

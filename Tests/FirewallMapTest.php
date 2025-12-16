@@ -33,7 +33,7 @@ class FirewallMapTest extends TestCase
             ->willReturn(false)
         ;
 
-        $map->add($notMatchingMatcher, [function () {}]);
+        $map->add($notMatchingMatcher, [static function () {}]);
 
         $matchingMatcher = $this->createMock(RequestMatcherInterface::class);
         $matchingMatcher
@@ -42,7 +42,7 @@ class FirewallMapTest extends TestCase
             ->with($this->equalTo($request))
             ->willReturn(true)
         ;
-        $theListener = function () {};
+        $theListener = static function () {};
         $theException = $this->createMock(ExceptionListener::class);
 
         $map->add($matchingMatcher, [$theListener], $theException);
@@ -53,7 +53,7 @@ class FirewallMapTest extends TestCase
             ->method('matches')
         ;
 
-        $map->add($tooLateMatcher, [function () {}]);
+        $map->add($tooLateMatcher, [static function () {}]);
 
         [$listeners, $exception] = $map->getListeners($request);
 
@@ -75,9 +75,9 @@ class FirewallMapTest extends TestCase
             ->willReturn(false)
         ;
 
-        $map->add($notMatchingMatcher, [function () {}]);
+        $map->add($notMatchingMatcher, [static function () {}]);
 
-        $theListener = function () {};
+        $theListener = static function () {};
         $theException = $this->createMock(ExceptionListener::class);
 
         $map->add(null, [$theListener], $theException);
@@ -88,7 +88,7 @@ class FirewallMapTest extends TestCase
             ->method('matches')
         ;
 
-        $map->add($tooLateMatcher, [function () {}]);
+        $map->add($tooLateMatcher, [static function () {}]);
 
         [$listeners, $exception] = $map->getListeners($request);
 
@@ -110,7 +110,7 @@ class FirewallMapTest extends TestCase
             ->willReturn(false)
         ;
 
-        $map->add($notMatchingMatcher, [function () {}]);
+        $map->add($notMatchingMatcher, [static function () {}]);
 
         [$listeners, $exception] = $map->getListeners($request);
 

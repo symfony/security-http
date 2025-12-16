@@ -168,7 +168,7 @@ class UserValueResolverTest extends TestCase
         $tokenStorage->setToken($token);
 
         $argumentResolver = new ArgumentResolver(null, [new UserValueResolver($tokenStorage)]);
-        $this->assertSame([$user], $argumentResolver->getArguments(Request::create('/'), function (UserInterface $user) {}));
+        $this->assertSame([$user], $argumentResolver->getArguments(Request::create('/'), static function (UserInterface $user) {}));
     }
 
     public function testIntegrationNoUser()
@@ -176,6 +176,6 @@ class UserValueResolverTest extends TestCase
         $tokenStorage = new TokenStorage();
 
         $argumentResolver = new ArgumentResolver(null, [new UserValueResolver($tokenStorage), new DefaultValueResolver()]);
-        $this->assertSame([null], $argumentResolver->getArguments(Request::create('/'), function (?UserInterface $user = null) {}));
+        $this->assertSame([null], $argumentResolver->getArguments(Request::create('/'), static function (?UserInterface $user = null) {}));
     }
 }

@@ -91,7 +91,7 @@ class CheckCredentialsListenerTest extends TestCase
             $this->expectException(BadCredentialsException::class);
         }
 
-        $credentials = new CustomCredentials(fn () => $result, ['password' => 'foo']);
+        $credentials = new CustomCredentials(static fn () => $result, ['password' => 'foo']);
         $this->listener->checkPassport($this->createEvent(new Passport(new UserBadge('wouter', fn () => $this->user), $credentials)));
 
         if (true === $result) {

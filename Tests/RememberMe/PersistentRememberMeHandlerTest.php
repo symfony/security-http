@@ -50,7 +50,7 @@ class PersistentRememberMeHandlerTest extends TestCase
     {
         $this->tokenProvider->expects($this->once())
             ->method('createNewToken')
-            ->with($this->callback(fn ($token) => $token instanceof PersistentToken && 'wouter' === $token->getUserIdentifier()));
+            ->with($this->callback(static fn ($token) => $token instanceof PersistentToken && 'wouter' === $token->getUserIdentifier()));
 
         $this->handler->createRememberMeCookie(new InMemoryUser('wouter', null));
     }

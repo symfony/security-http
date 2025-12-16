@@ -68,7 +68,7 @@ class AuthenticatorManager implements AuthenticatorManagerInterface, UserAuthent
     public function authenticateUser(UserInterface $user, AuthenticatorInterface $authenticator, Request $request, array $badges = [], array $attributes = []): ?Response
     {
         // create an authentication token for the User
-        $passport = new SelfValidatingPassport(new UserBadge($user->getUserIdentifier(), fn () => $user), $badges);
+        $passport = new SelfValidatingPassport(new UserBadge($user->getUserIdentifier(), static fn () => $user), $badges);
         foreach ($attributes as $k => $v) {
             $passport->setAttribute($k, $v);
         }

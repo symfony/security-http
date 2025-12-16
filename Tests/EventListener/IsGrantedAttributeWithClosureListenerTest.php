@@ -216,7 +216,7 @@ class IsGrantedAttributeWithClosureListenerTest extends TestCase
     #[DataProvider('getAccessDeniedMessageTests')]
     public function testAccessDeniedMessages(string|array|null $subject, string $method, int $numOfArguments, string $expectedMessage)
     {
-        $authChecker = new AuthorizationChecker(new TokenStorage(), new AccessDecisionManager((function () use (&$authChecker) {
+        $authChecker = new AuthorizationChecker(new TokenStorage(), new AccessDecisionManager((static function () use (&$authChecker) {
             yield new ClosureVoter($authChecker);
         })()));
 
