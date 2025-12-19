@@ -27,13 +27,13 @@ use Symfony\Component\Security\Http\RememberMe\ResponseListener;
 
 class RememberMeAuthenticatorTest extends TestCase
 {
-    private MockObject&RememberMeHandlerInterface $rememberMeHandler;
+    private RememberMeHandlerInterface $rememberMeHandler;
     private TokenStorage $tokenStorage;
     private RememberMeAuthenticator $authenticator;
 
     protected function setUp(): void
     {
-        $this->rememberMeHandler = $this->createMock(RememberMeHandlerInterface::class);
+        $this->rememberMeHandler = $this->createStub(RememberMeHandlerInterface::class);
         $this->tokenStorage = new TokenStorage();
         $this->authenticator = new RememberMeAuthenticator($this->rememberMeHandler, $this->tokenStorage, '_remember_me_cookie');
     }
@@ -68,23 +68,25 @@ class RememberMeAuthenticatorTest extends TestCase
 
     public function testAuthenticate()
     {
+        $rememberMeHandler = $this->createMock(RememberMeHandlerInterface::class);
         $rememberMeDetails = new RememberMeDetails('wouter', 1, 'secret');
         $cookieData = explode(RememberMeDetails::COOKIE_DELIMITER, $rememberMeDetails->toString());
         $cookieData[0] = '';
         $request = Request::create('/', 'GET', [], ['_remember_me_cookie' => implode(RememberMeDetails::COOKIE_DELIMITER, $cookieData)]);
-        $passport = $this->authenticator->authenticate($request);
+        $passport = (new RememberMeAuthenticator($rememberMeHandler, $this->tokenStorage, '_remember_me_cookie'))->authenticate($request);
 
-        $this->rememberMeHandler->expects($this->once())->method('consumeRememberMeCookie')->with($this->callback(fn ($arg) => $rememberMeDetails == $arg));
+        $rememberMeHandler->expects($this->once())->method('consumeRememberMeCookie')->with($this->callback(fn ($arg) => $rememberMeDetails == $arg));
         $passport->getUser(); // trigger the user loader
     }
 
     public function testAuthenticateLegacyCookieFormat()
     {
+        $rememberMeHandler = $this->createMock(RememberMeHandlerInterface::class);
         $rememberMeDetails = new RememberMeDetails(InMemoryUser::class, 'wouter', 1, 'secret', false);
         $request = Request::create('/', 'GET', [], ['_remember_me_cookie' => $rememberMeDetails->toString()]);
-        $passport = $this->authenticator->authenticate($request);
+        $passport = (new RememberMeAuthenticator($rememberMeHandler, $this->tokenStorage, '_remember_me_cookie'))->authenticate($request);
 
-        $this->rememberMeHandler->expects($this->once())->method('consumeRememberMeCookie')->with($this->callback(fn ($arg) => $rememberMeDetails == $arg));
+        $rememberMeHandler->expects($this->once())->method('consumeRememberMeCookie')->with($this->callback(fn ($arg) => $rememberMeDetails == $arg));
         $passport->getUser(); // trigger the user loader
     }
 

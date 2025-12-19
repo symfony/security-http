@@ -43,7 +43,7 @@ class FirewallMapTest extends TestCase
             ->willReturn(true)
         ;
         $theListener = function () {};
-        $theException = $this->createMock(ExceptionListener::class);
+        $theException = $this->createStub(ExceptionListener::class);
 
         $map->add($matchingMatcher, [$theListener], $theException);
 
@@ -78,7 +78,7 @@ class FirewallMapTest extends TestCase
         $map->add($notMatchingMatcher, [function () {}]);
 
         $theListener = function () {};
-        $theException = $this->createMock(ExceptionListener::class);
+        $theException = $this->createStub(ExceptionListener::class);
 
         $map->add(null, [$theListener], $theException);
 

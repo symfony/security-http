@@ -16,6 +16,7 @@ use PHPUnit\Framework\Attributes\IgnoreDeprecations;
 use PHPUnit\Framework\TestCase;
 use Symfony\Bridge\PhpUnit\ExpectUserDeprecationMessageTrait;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
@@ -32,7 +33,7 @@ class FirewallTest extends TestCase
 
     public function testOnKernelRequestRegistersExceptionListener()
     {
-        $dispatcher = $this->createMock(EventDispatcherInterface::class);
+        $dispatcher = new EventDispatcher();
 
         $listener = $this->createMock(ExceptionListener::class);
         $listener
@@ -41,7 +42,7 @@ class FirewallTest extends TestCase
             ->with($this->equalTo($dispatcher))
         ;
 
-        $request = $this->createMock(Request::class);
+        $request = new Request();
 
         $map = $this->createMock(FirewallMapInterface::class);
         $map
@@ -51,7 +52,7 @@ class FirewallTest extends TestCase
             ->willReturn([[], $listener, null])
         ;
 
-        $event = new RequestEvent($this->createMock(HttpKernelInterface::class), $request, HttpKernelInterface::MAIN_REQUEST);
+        $event = new RequestEvent($this->createStub(HttpKernelInterface::class), $request, HttpKernelInterface::MAIN_REQUEST);
 
         $firewall = new Firewall($map, $dispatcher);
         $firewall->onKernelRequest($event);
@@ -80,10 +81,10 @@ class FirewallTest extends TestCase
             ->willReturn([[$listener, $listener], null, null])
         ;
 
-        $event = new RequestEvent($this->createMock(HttpKernelInterface::class), new Request(), HttpKernelInterface::MAIN_REQUEST);
+        $event = new RequestEvent($this->createStub(HttpKernelInterface::class), new Request(), HttpKernelInterface::MAIN_REQUEST);
         $event->setResponse(new Response());
 
-        $firewall = new Firewall($map, $this->createMock(EventDispatcherInterface::class));
+        $firewall = new Firewall($map, new EventDispatcher());
         $firewall->onKernelRequest($event);
 
         $this->assertSame(1, $listener->callCount);
@@ -98,12 +99,12 @@ class FirewallTest extends TestCase
         ;
 
         $event = new RequestEvent(
-            $this->createMock(HttpKernelInterface::class),
-            $this->createMock(Request::class),
+            $this->createStub(HttpKernelInterface::class),
+            new Request(),
             HttpKernelInterface::SUB_REQUEST
         );
 
-        $firewall = new Firewall($map, $this->createMock(EventDispatcherInterface::class));
+        $firewall = new Firewall($map, new EventDispatcher());
         $firewall->onKernelRequest($event);
 
         $this->assertFalse($event->hasResponse());
@@ -149,7 +150,7 @@ class FirewallTest extends TestCase
             }
         };
 
-        $request = $this->createMock(Request::class);
+        $request = new Request();
 
         $map = $this->createMock(FirewallMapInterface::class);
         $map
@@ -159,9 +160,9 @@ class FirewallTest extends TestCase
             ->willReturn([[$firewallListener, $callableFirewallListener], null, null])
         ;
 
-        $event = new RequestEvent($this->createMock(HttpKernelInterface::class), $request, HttpKernelInterface::MAIN_REQUEST);
+        $event = new RequestEvent($this->createStub(HttpKernelInterface::class), $request, HttpKernelInterface::MAIN_REQUEST);
 
-        $firewall = new Firewall($map, $this->createMock(EventDispatcherInterface::class));
+        $firewall = new Firewall($map, new EventDispatcher());
         $firewall->onKernelRequest($event);
 
         $this->assertSame(['firewallListener', 'callableFirewallListener'], $calledListeners);
