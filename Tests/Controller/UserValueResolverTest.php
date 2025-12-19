@@ -24,6 +24,7 @@ use Symfony\Component\Security\Core\User\InMemoryUser;
 use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Component\Security\Http\Controller\UserValueResolver;
+use Symfony\Component\Security\Http\Tests\Fixtures\CustomUser;
 
 class UserValueResolverTest extends TestCase
 {
@@ -111,7 +112,7 @@ class UserValueResolverTest extends TestCase
 
     public function testResolveThrowsAccessDeniedWithWrongUserClass()
     {
-        $user = $this->createMock(UserInterface::class);
+        $user = new CustomUser('John', ['ROLE_USER'], 'password', 'hash');
         $token = new UsernamePasswordToken($user, 'provider');
         $tokenStorage = new TokenStorage();
         $tokenStorage->setToken($token);

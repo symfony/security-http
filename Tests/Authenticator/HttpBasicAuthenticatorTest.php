@@ -13,8 +13,6 @@ namespace Symfony\Component\Security\Http\Tests\Authenticator;
 
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\PasswordHasher\Hasher\PasswordHasherFactoryInterface;
-use Symfony\Component\PasswordHasher\PasswordHasherInterface;
 use Symfony\Component\Security\Core\User\InMemoryUser;
 use Symfony\Component\Security\Core\User\InMemoryUserProvider;
 use Symfony\Component\Security\Http\Authenticator\HttpBasicAuthenticator;
@@ -30,14 +28,6 @@ class HttpBasicAuthenticatorTest extends TestCase
     protected function setUp(): void
     {
         $this->userProvider = new InMemoryUserProvider();
-
-        $hasherFactory = $this->createMock(PasswordHasherFactoryInterface::class);
-        $hasher = $this->createMock(PasswordHasherInterface::class);
-        $hasherFactory
-            ->expects($this->any())
-            ->method('getPasswordHasher')
-            ->willReturn($hasher);
-
         $this->authenticator = new HttpBasicAuthenticator('test', $this->userProvider);
     }
 

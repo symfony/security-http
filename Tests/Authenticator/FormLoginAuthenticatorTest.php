@@ -11,10 +11,10 @@
 
 namespace Symfony\Component\Security\Http\Tests\Authenticator;
 
-use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\Session\SessionInterface;
+use Symfony\Component\HttpFoundation\Session\Session;
+use Symfony\Component\HttpFoundation\Session\Storage\MockArraySessionStorage;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\Security\Core\Exception\BadCredentialsException;
 use Symfony\Component\Security\Core\User\InMemoryUserProvider;
@@ -31,15 +31,15 @@ use Symfony\Component\Security\Http\Tests\Authenticator\Fixtures\PasswordUpgrade
 class FormLoginAuthenticatorTest extends TestCase
 {
     private InMemoryUserProvider $userProvider;
-    private MockObject&AuthenticationSuccessHandlerInterface $successHandler;
-    private MockObject&AuthenticationFailureHandlerInterface $failureHandler;
+    private AuthenticationSuccessHandlerInterface $successHandler;
+    private AuthenticationFailureHandlerInterface $failureHandler;
     private FormLoginAuthenticator $authenticator;
 
     protected function setUp(): void
     {
         $this->userProvider = new InMemoryUserProvider(['test' => ['password' => 's$cr$t']]);
-        $this->successHandler = $this->createMock(AuthenticationSuccessHandlerInterface::class);
-        $this->failureHandler = $this->createMock(AuthenticationFailureHandlerInterface::class);
+        $this->successHandler = $this->createStub(AuthenticationSuccessHandlerInterface::class);
+        $this->failureHandler = $this->createStub(AuthenticationFailureHandlerInterface::class);
     }
 
     public function testHandleWhenUsernameEmpty()
@@ -48,7 +48,7 @@ class FormLoginAuthenticatorTest extends TestCase
         $this->expectExceptionMessage('The key "_username" must be a non-empty string.');
 
         $request = Request::create('/login_check', 'POST', ['_username' => '', '_password' => 's$cr$t']);
-        $request->setSession($this->createSession());
+        $request->setSession(new Session(new MockArraySessionStorage()));
 
         $this->setUpAuthenticator();
         $this->authenticator->authenticate($request);
@@ -60,7 +60,7 @@ class FormLoginAuthenticatorTest extends TestCase
         $this->expectExceptionMessage('The key "_password" must be a non-empty string.');
 
         $request = Request::create('/login_check', 'POST', ['_username' => 'foo', '_password' => '']);
-        $request->setSession($this->createSession());
+        $request->setSession(new Session(new MockArraySessionStorage()));
 
         $this->setUpAuthenticator();
         $this->authenticator->authenticate($request);
@@ -79,7 +79,7 @@ class FormLoginAuthenticatorTest extends TestCase
         }
 
         $request = Request::create('/login_check', 'POST', ['_username' => $username, '_password' => 's$cr$t']);
-        $request->setSession($this->createSession());
+        $request->setSession(new Session(new MockArraySessionStorage()));
 
         $this->setUpAuthenticator();
         $this->authenticator->authenticate($request);
@@ -97,7 +97,7 @@ class FormLoginAuthenticatorTest extends TestCase
     public function testHandleNonStringUsernameWithArray($postOnly)
     {
         $request = Request::create('/login_check', 'POST', ['_username' => []]);
-        $request->setSession($this->createSession());
+        $request->setSession(new Session(new MockArraySessionStorage()));
 
         $this->setUpAuthenticator(['post_only' => $postOnly]);
 
@@ -113,7 +113,7 @@ class FormLoginAuthenticatorTest extends TestCase
     public function testHandleNonStringUsernameWithInt($postOnly)
     {
         $request = Request::create('/login_check', 'POST', ['_username' => 42]);
-        $request->setSession($this->createSession());
+        $request->setSession(new Session(new MockArraySessionStorage()));
 
         $this->setUpAuthenticator(['post_only' => $postOnly]);
 
@@ -129,7 +129,7 @@ class FormLoginAuthenticatorTest extends TestCase
     public function testHandleNonStringUsernameWithObject($postOnly)
     {
         $request = Request::create('/login_check', 'POST', ['_username' => new \stdClass()]);
-        $request->setSession($this->createSession());
+        $request->setSession(new Session(new MockArraySessionStorage()));
 
         $this->setUpAuthenticator(['post_only' => $postOnly]);
 
@@ -148,7 +148,7 @@ class FormLoginAuthenticatorTest extends TestCase
         $usernameObject->expects($this->once())->method('__toString')->willReturn('someUsername');
 
         $request = Request::create('/login_check', 'POST', ['_username' => $usernameObject, '_password' => 's$cr$t']);
-        $request->setSession($this->createSession());
+        $request->setSession(new Session(new MockArraySessionStorage()));
 
         $this->setUpAuthenticator(['post_only' => $postOnly]);
         $this->authenticator->authenticate($request);
@@ -160,7 +160,7 @@ class FormLoginAuthenticatorTest extends TestCase
     public function testHandleNonStringPasswordWithArray(bool $postOnly)
     {
         $request = Request::create('/login_check', 'POST', ['_username' => 'foo', '_password' => []]);
-        $request->setSession($this->createSession());
+        $request->setSession(new Session(new MockArraySessionStorage()));
 
         $this->setUpAuthenticator(['post_only' => $postOnly]);
 
@@ -183,7 +183,7 @@ class FormLoginAuthenticatorTest extends TestCase
         };
 
         $request = Request::create('/login_check', 'POST', ['_username' => 'foo', '_password' => $passwordObject]);
-        $request->setSession($this->createSession());
+        $request->setSession(new Session(new MockArraySessionStorage()));
 
         $this->setUpAuthenticator(['post_only' => $postOnly]);
         $passport = $this->authenticator->authenticate($request);
@@ -199,7 +199,7 @@ class FormLoginAuthenticatorTest extends TestCase
     public function testHandleNonStringCsrfTokenWithArray($postOnly)
     {
         $request = Request::create('/login_check', 'POST', ['_username' => 'foo', '_password' => 'bar', '_csrf_token' => []]);
-        $request->setSession($this->createSession());
+        $request->setSession(new Session(new MockArraySessionStorage()));
 
         $this->setUpAuthenticator(['post_only' => $postOnly]);
 
@@ -215,7 +215,7 @@ class FormLoginAuthenticatorTest extends TestCase
     public function testHandleNonStringCsrfTokenWithInt($postOnly)
     {
         $request = Request::create('/login_check', 'POST', ['_username' => 'foo', '_password' => 'bar', '_csrf_token' => 42]);
-        $request->setSession($this->createSession());
+        $request->setSession(new Session(new MockArraySessionStorage()));
 
         $this->setUpAuthenticator(['post_only' => $postOnly]);
 
@@ -231,7 +231,7 @@ class FormLoginAuthenticatorTest extends TestCase
     public function testHandleNonStringCsrfTokenWithObject($postOnly)
     {
         $request = Request::create('/login_check', 'POST', ['_username' => 'foo', '_password' => 'bar', '_csrf_token' => new \stdClass()]);
-        $request->setSession($this->createSession());
+        $request->setSession(new Session(new MockArraySessionStorage()));
 
         $this->setUpAuthenticator(['post_only' => $postOnly]);
 
@@ -250,7 +250,7 @@ class FormLoginAuthenticatorTest extends TestCase
     public function testCsrfProtection()
     {
         $request = Request::create('/login_check', 'POST', ['_username' => 'wouter', '_password' => 's$cr$t']);
-        $request->setSession($this->createSession());
+        $request->setSession(new Session(new MockArraySessionStorage()));
 
         $this->setUpAuthenticator(['enable_csrf' => true]);
         $passport = $this->authenticator->authenticate($request);
@@ -260,7 +260,7 @@ class FormLoginAuthenticatorTest extends TestCase
     public function testUpgradePassword()
     {
         $request = Request::create('/login_check', 'POST', ['_username' => 'wouter', '_password' => 's$cr$t']);
-        $request->setSession($this->createSession());
+        $request->setSession(new Session(new MockArraySessionStorage()));
 
         $this->userProvider = new PasswordUpgraderProvider(['test' => ['password' => 's$cr$t']]);
 
@@ -295,11 +295,6 @@ class FormLoginAuthenticatorTest extends TestCase
     private function setUpAuthenticator(array $options = [])
     {
         $this->authenticator = new FormLoginAuthenticator(new HttpUtils(), $this->userProvider, $this->successHandler, $this->failureHandler, $options);
-    }
-
-    private function createSession()
-    {
-        return $this->createMock(SessionInterface::class);
     }
 }
 
