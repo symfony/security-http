@@ -25,6 +25,7 @@ use Symfony\Component\Security\Core\Authorization\AccessDecisionManagerInterface
 use Symfony\Component\Security\Core\Authorization\Voter\AuthenticatedVoter;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 use Symfony\Component\Security\Core\User\InMemoryUser;
+use Symfony\Component\Security\Http\AccessMap;
 use Symfony\Component\Security\Http\AccessMapInterface;
 use Symfony\Component\Security\Http\Event\LazyResponseEvent;
 use Symfony\Component\Security\Http\Firewall\AccessListener;
@@ -45,12 +46,8 @@ class AccessListenerTest extends TestCase
 
         $token = new class extends AbstractToken {};
 
-        $tokenStorage = $this->createMock(TokenStorageInterface::class);
-        $tokenStorage
-            ->expects($this->any())
-            ->method('getToken')
-            ->willReturn($token)
-        ;
+        $tokenStorage = new TokenStorage();
+        $tokenStorage->setToken($token);
 
         $accessDecisionManager = $this->createMock(AccessDecisionManagerInterface::class);
         $accessDecisionManager
@@ -69,7 +66,7 @@ class AccessListenerTest extends TestCase
         $this->expectException(AccessDeniedException::class);
 
         $this->assertTrue($listener->supports($request));
-        $listener->authenticate(new RequestEvent($this->createMock(HttpKernelInterface::class), $request, HttpKernelInterface::MAIN_REQUEST));
+        $listener->authenticate(new RequestEvent($this->createStub(HttpKernelInterface::class), $request, HttpKernelInterface::MAIN_REQUEST));
     }
 
     public function testHandleWhenThereIsNoAccessMapEntryMatchingTheRequest()
@@ -92,12 +89,12 @@ class AccessListenerTest extends TestCase
 
         $listener = new AccessListener(
             $tokenStorage,
-            $this->createMock(AccessDecisionManagerInterface::class),
+            $this->createStub(AccessDecisionManagerInterface::class),
             $accessMap
         );
 
         $this->assertNull($listener->supports($request));
-        $listener->authenticate(new RequestEvent($this->createMock(HttpKernelInterface::class), $request, HttpKernelInterface::MAIN_REQUEST));
+        $listener->authenticate(new RequestEvent($this->createStub(HttpKernelInterface::class), $request, HttpKernelInterface::MAIN_REQUEST));
     }
 
     public function testHandleWhenAccessMapReturnsEmptyAttributes()
@@ -120,11 +117,11 @@ class AccessListenerTest extends TestCase
 
         $listener = new AccessListener(
             $tokenStorage,
-            $this->createMock(AccessDecisionManagerInterface::class),
+            $this->createStub(AccessDecisionManagerInterface::class),
             $accessMap
         );
 
-        $event = new RequestEvent($this->createMock(HttpKernelInterface::class), $request, HttpKernelInterface::MAIN_REQUEST);
+        $event = new RequestEvent($this->createStub(HttpKernelInterface::class), $request, HttpKernelInterface::MAIN_REQUEST);
 
         $this->assertNull($listener->supports($request));
         $listener->authenticate(new LazyResponseEvent($event));
@@ -158,7 +155,7 @@ class AccessListenerTest extends TestCase
         $this->expectException(AccessDeniedException::class);
 
         $this->assertTrue($listener->supports($request));
-        $listener->authenticate(new RequestEvent($this->createMock(HttpKernelInterface::class), $request, HttpKernelInterface::MAIN_REQUEST));
+        $listener->authenticate(new RequestEvent($this->createStub(HttpKernelInterface::class), $request, HttpKernelInterface::MAIN_REQUEST));
     }
 
     public function testHandleWhenPublicAccessIsAllowed()
@@ -187,7 +184,7 @@ class AccessListenerTest extends TestCase
         );
 
         $this->assertNull($listener->supports($request));
-        $listener->authenticate(new RequestEvent($this->createMock(HttpKernelInterface::class), $request, HttpKernelInterface::MAIN_REQUEST));
+        $listener->authenticate(new RequestEvent($this->createStub(HttpKernelInterface::class), $request, HttpKernelInterface::MAIN_REQUEST));
     }
 
     public function testHandleWhenPublicAccessWhileAuthenticated()
@@ -218,10 +215,10 @@ class AccessListenerTest extends TestCase
         );
 
         $this->assertNull($listener->supports($request));
-        $listener->authenticate(new RequestEvent($this->createMock(HttpKernelInterface::class), $request, HttpKernelInterface::MAIN_REQUEST));
+        $listener->authenticate(new RequestEvent($this->createStub(HttpKernelInterface::class), $request, HttpKernelInterface::MAIN_REQUEST));
     }
 
-    public function testHandleMWithultipleAttributesShouldBeHandledAsAnd()
+    public function testHandleWithMultipleAttributesShouldBeHandledAsAnd()
     {
         $request = new Request();
 
@@ -269,7 +266,7 @@ class AccessListenerTest extends TestCase
             ->willReturn([[AuthenticatedVoter::PUBLIC_ACCESS], null])
         ;
 
-        $listener = new AccessListener($tokenStorage, $this->createMock(AccessDecisionManagerInterface::class), $accessMap, false);
+        $listener = new AccessListener($tokenStorage, $this->createStub(AccessDecisionManagerInterface::class), $accessMap, false);
 
         $this->assertNull($listener->supports($request));
         $listener->authenticate(new LazyResponseEvent(new RequestEvent($this->createMock(HttpKernelInterface::class), $request, HttpKernelInterface::MAIN_REQUEST)));
@@ -280,12 +277,10 @@ class AccessListenerTest extends TestCase
         $tokenStorage = $this->createMock(TokenStorageInterface::class);
         $tokenStorage->expects($this->never())->method(self::anything());
 
-        $accessMap = $this->createMock(AccessMapInterface::class);
-
         $this->expectExceptionObject(
             new \LogicException('Argument $exceptionOnNoToken of "Symfony\Component\Security\Http\Firewall\AccessListener::__construct()" must be set to "false".')
         );
 
-        new AccessListener($tokenStorage, $this->createMock(AccessDecisionManagerInterface::class), $accessMap, true);
+        new AccessListener($tokenStorage, $this->createStub(AccessDecisionManagerInterface::class), new AccessMap(), true);
     }
 }
