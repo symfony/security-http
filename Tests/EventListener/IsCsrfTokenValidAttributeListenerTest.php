@@ -348,7 +348,7 @@ class IsCsrfTokenValidAttributeListenerTest extends TestCase
             ->willReturn(true);
 
         $event = new ControllerArgumentsEvent(
-            $this->createMock(HttpKernelInterface::class),
+            $this->createStub(HttpKernelInterface::class),
             [new IsCsrfTokenValidAttributeMethodsController(), $attributeMethod],
             [],
             $request,

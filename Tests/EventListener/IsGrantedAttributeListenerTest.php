@@ -473,7 +473,7 @@ class IsGrantedAttributeListenerTest extends TestCase
         $authChecker->expects($this->once())->method('isGranted')->willReturn(false);
 
         $event = new ControllerArgumentsEvent(
-            $this->createMock(HttpKernelInterface::class),
+            $this->createStub(HttpKernelInterface::class),
             [new IsGrantedAttributeMethodsController(), 'adminWithMethodGet'],
             [],
             new Request([], [], [], [], [], ['REQUEST_METHOD' => 'GET']),
@@ -491,7 +491,7 @@ class IsGrantedAttributeListenerTest extends TestCase
         $authChecker->expects($this->once())->method('isGranted')->willReturn(false);
 
         $event = new ControllerArgumentsEvent(
-            $this->createMock(HttpKernelInterface::class),
+            $this->createStub(HttpKernelInterface::class),
             [new IsGrantedAttributeMethodsController(), 'adminWithMethodGetAndPost'],
             [],
             new Request([], [], [], [], [], ['REQUEST_METHOD' => 'POST']),
@@ -509,7 +509,7 @@ class IsGrantedAttributeListenerTest extends TestCase
         $authChecker->expects($this->never())->method('isGranted');
 
         $event = new ControllerArgumentsEvent(
-            $this->createMock(HttpKernelInterface::class),
+            $this->createStub(HttpKernelInterface::class),
             [new IsGrantedAttributeMethodsController(), 'adminWithMethodGetAndPost'],
             [],
             new Request([], [], [], [], [], ['REQUEST_METHOD' => 'PUT']),
@@ -526,7 +526,7 @@ class IsGrantedAttributeListenerTest extends TestCase
         $authChecker->expects($this->never())->method('isGranted');
 
         $event = new ControllerArgumentsEvent(
-            $this->createMock(HttpKernelInterface::class),
+            $this->createStub(HttpKernelInterface::class),
             [new IsGrantedAttributeMethodsController(), 'adminWithMethodGet'],
             [],
             new Request([], [], [], [], [], ['REQUEST_METHOD' => 'POST']),
@@ -547,7 +547,7 @@ class IsGrantedAttributeListenerTest extends TestCase
 
         $controller = [new IsGrantedAttributeMethodsController(), 'admin'];
         $event = new ControllerArgumentsEvent(
-            $this->createMock(HttpKernelInterface::class),
+            $this->createStub(HttpKernelInterface::class),
             $controller,
             [],
             new Request(),
@@ -574,7 +574,7 @@ class IsGrantedAttributeListenerTest extends TestCase
 
         $controller = [new IsGrantedAttributeMethodsController(), 'admin'];
         $event = new ControllerArgumentsEvent(
-            $this->createMock(HttpKernelInterface::class),
+            $this->createStub(HttpKernelInterface::class),
             $controller,
             [],
             new Request(),

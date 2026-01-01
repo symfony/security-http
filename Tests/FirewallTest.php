@@ -15,7 +15,6 @@ use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\IgnoreDeprecations;
 use PHPUnit\Framework\TestCase;
 use Symfony\Bridge\PhpUnit\ExpectUserDeprecationMessageTrait;
-use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -176,7 +175,7 @@ class FirewallTest extends TestCase
 
         $callableListener = static function () use (&$calledListeners) { $calledListeners[] = 'callableListener'; };
 
-        $request = $this->createMock(Request::class);
+        $request = new Request();
 
         $map = $this->createMock(FirewallMapInterface::class);
         $map
@@ -186,9 +185,9 @@ class FirewallTest extends TestCase
             ->willReturn([[$callableListener], null, null])
         ;
 
-        $event = new RequestEvent($this->createMock(HttpKernelInterface::class), $request, HttpKernelInterface::MAIN_REQUEST);
+        $event = new RequestEvent($this->createStub(HttpKernelInterface::class), $request, HttpKernelInterface::MAIN_REQUEST);
 
-        $firewall = new Firewall($map, $this->createMock(EventDispatcherInterface::class));
+        $firewall = new Firewall($map, new EventDispatcher());
 
         $this->expectUserDeprecationMessage('Since symfony/security-http 7.4: Using a callable as firewall listener is deprecated, extend "Symfony\Component\Security\Http\Firewall\AbstractListener" or implement "Symfony\Component\Security\Http\Firewall\FirewallListenerInterface" instead.');
         $firewall->onKernelRequest($event);

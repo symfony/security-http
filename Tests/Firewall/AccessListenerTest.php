@@ -269,7 +269,7 @@ class AccessListenerTest extends TestCase
         $listener = new AccessListener($tokenStorage, $this->createStub(AccessDecisionManagerInterface::class), $accessMap, false);
 
         $this->assertNull($listener->supports($request));
-        $listener->authenticate(new LazyResponseEvent(new RequestEvent($this->createMock(HttpKernelInterface::class), $request, HttpKernelInterface::MAIN_REQUEST)));
+        $listener->authenticate(new LazyResponseEvent(new RequestEvent($this->createStub(HttpKernelInterface::class), $request, HttpKernelInterface::MAIN_REQUEST)));
     }
 
     public function testConstructWithTrueExceptionOnNoToken()
