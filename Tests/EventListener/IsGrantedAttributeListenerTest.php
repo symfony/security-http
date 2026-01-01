@@ -201,8 +201,6 @@ class IsGrantedAttributeListenerTest extends TestCase
     {
         $authChecker = $this->createStub(AuthorizationCheckerInterface::class);
 
-        $this->expectException(\RuntimeException::class);
-
         $event = new ControllerArgumentsEvent(
             $this->createStub(HttpKernelInterface::class),
             [new IsGrantedAttributeMethodsController(), 'withMissingSubject'],

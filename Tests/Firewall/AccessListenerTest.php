@@ -38,7 +38,7 @@ class AccessListenerTest extends TestCase
 
         $accessMap = $this->createMock(AccessMapInterface::class);
         $accessMap
-            ->expects($this->any())
+            ->expects($this->once())
             ->method('getPatterns')
             ->with($this->equalTo($request))
             ->willReturn([['foo' => 'bar'], null])
@@ -74,7 +74,7 @@ class AccessListenerTest extends TestCase
 
         $accessMap = $this->createMock(AccessMapInterface::class);
         $accessMap
-            ->expects($this->any())
+            ->expects($this->once())
             ->method('getPatterns')
             ->with($this->equalTo($request))
             ->willReturn([null, null])
@@ -101,7 +101,7 @@ class AccessListenerTest extends TestCase
 
         $accessMap = $this->createMock(AccessMapInterface::class);
         $accessMap
-            ->expects($this->any())
+            ->expects($this->once())
             ->method('getPatterns')
             ->with($this->equalTo($request))
             ->willReturn([[], null])
@@ -130,7 +130,7 @@ class AccessListenerTest extends TestCase
         $request = new Request();
 
         $accessMap = $this->createMock(AccessMapInterface::class);
-        $accessMap->expects($this->any())
+        $accessMap->expects($this->once())
             ->method('getPatterns')
             ->with($this->equalTo($request))
             ->willReturn([['foo' => 'bar'], null])
@@ -160,7 +160,7 @@ class AccessListenerTest extends TestCase
         $request = new Request();
 
         $accessMap = $this->createMock(AccessMapInterface::class);
-        $accessMap->expects($this->any())
+        $accessMap->expects($this->once())
             ->method('getPatterns')
             ->with($this->equalTo($request))
             ->willReturn([[AuthenticatedVoter::PUBLIC_ACCESS], null])
@@ -190,7 +190,7 @@ class AccessListenerTest extends TestCase
         $request = new Request();
 
         $accessMap = $this->createMock(AccessMapInterface::class);
-        $accessMap->expects($this->any())
+        $accessMap->expects($this->once())
             ->method('getPatterns')
             ->with($this->equalTo($request))
             ->willReturn([[AuthenticatedVoter::PUBLIC_ACCESS], null])
@@ -218,7 +218,7 @@ class AccessListenerTest extends TestCase
 
         $accessMap = $this->createMock(AccessMapInterface::class);
         $accessMap
-            ->expects($this->any())
+            ->expects($this->once())
             ->method('getPatterns')
             ->with($this->equalTo($request))
             ->willReturn([['foo' => 'bar', 'bar' => 'baz'], null])
@@ -243,7 +243,7 @@ class AccessListenerTest extends TestCase
             $accessMap
         );
 
-        $listener(new RequestEvent($this->createMock(HttpKernelInterface::class), $request, HttpKernelInterface::MAIN_REQUEST));
+        $listener(new RequestEvent($this->createStub(HttpKernelInterface::class), $request, HttpKernelInterface::MAIN_REQUEST));
     }
 
     public function testLazyPublicPagesShouldNotAccessTokenStorage()
@@ -253,7 +253,7 @@ class AccessListenerTest extends TestCase
 
         $request = new Request();
         $accessMap = $this->createMock(AccessMapInterface::class);
-        $accessMap->expects($this->any())
+        $accessMap->expects($this->once())
             ->method('getPatterns')
             ->with($this->equalTo($request))
             ->willReturn([[AuthenticatedVoter::PUBLIC_ACCESS], null])
