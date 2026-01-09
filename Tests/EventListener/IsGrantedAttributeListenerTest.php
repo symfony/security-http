@@ -12,10 +12,13 @@
 namespace Symfony\Component\Security\Http\Tests\EventListener;
 
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\RequiresMethod;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\ExpressionLanguage\Expression;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Event\ControllerArgumentsEvent;
+use Symfony\Component\HttpKernel\Event\ControllerAttributeEvent;
 use Symfony\Component\HttpKernel\Event\ResponseEvent;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
@@ -643,5 +646,43 @@ class IsGrantedAttributeListenerTest extends TestCase
 
         $listener = new IsGrantedAttributeListener($authChecker);
         $listener->onKernelControllerArguments($event);
+    }
+
+    #[RequiresMethod(ControllerAttributeEvent::class, '__construct')]
+    public function testonKernelControllerAttributeDelegatesControllerArgumentsEvent()
+    {
+        $authChecker = $this->createMock(AuthorizationCheckerInterface::class);
+        $authChecker->expects($this->exactly(2))
+            ->method('isGranted')
+            ->willReturn(true);
+
+        $event = new ControllerArgumentsEvent(
+            $this->createStub(HttpKernelInterface::class),
+            [new IsGrantedAttributeController(), 'foo'],
+            [],
+            new Request(),
+            null
+        );
+
+        $listener = new IsGrantedAttributeListener($authChecker);
+        $listener->onKernelControllerAttribute(new ControllerAttributeEvent(new IsGranted('ROLE_ADMIN'), $event));
+        $listener->onKernelControllerAttribute(new ControllerAttributeEvent(new IsGranted('ROLE_USER'), $event));
+    }
+
+    #[RequiresMethod(ControllerAttributeEvent::class, '__construct')]
+    public function testonKernelControllerAttributeIgnoresResponseEvent()
+    {
+        $authChecker = $this->createMock(AuthorizationCheckerInterface::class);
+        $authChecker->expects($this->never())->method('isGranted');
+
+        $event = new ResponseEvent(
+            $this->createStub(HttpKernelInterface::class),
+            new Request(),
+            HttpKernelInterface::MAIN_REQUEST,
+            new Response()
+        );
+
+        $listener = new IsGrantedAttributeListener($authChecker);
+        $listener->onKernelControllerAttribute(new ControllerAttributeEvent(new IsGranted('ROLE_ADMIN'), $event));
     }
 }

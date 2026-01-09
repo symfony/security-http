@@ -16,6 +16,8 @@ use Symfony\Component\ExpressionLanguage\Expression;
 use Symfony\Component\ExpressionLanguage\ExpressionLanguage;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\ControllerArgumentsEvent;
+use Symfony\Component\HttpKernel\Event\ControllerAttributeEvent;
+use Symfony\Component\HttpKernel\EventListener\ControllerAttributesListener;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\Security\Core\Authorization\AccessDecision;
@@ -37,6 +39,27 @@ class IsGrantedAttributeListener implements EventSubscriberInterface
     ) {
     }
 
+    public function onKernelControllerAttribute(ControllerAttributeEvent $event): void
+    {
+        $kernelEvent = $event->kernelEvent;
+
+        if (!$kernelEvent instanceof ControllerArgumentsEvent) {
+            return;
+        }
+
+        $controller = $kernelEvent->getController();
+        $controller = match (true) {
+            \is_object($controller) && !$controller instanceof \Closure => $controller,
+            \is_array($controller) && \is_object($controller[0]) => $controller[0],
+            default => null,
+        };
+
+        $this->processAttribute($event->attribute, $kernelEvent->getRequest(), $kernelEvent->getNamedArguments(), $controller);
+    }
+
+    /**
+     * @internal since Symfony 8.1, use onKernelControllerAttribute() instead
+     */
     public function onKernelControllerArguments(ControllerArgumentsEvent $event): void
     {
         $attributes = [];
@@ -61,43 +84,54 @@ class IsGrantedAttributeListener implements EventSubscriberInterface
         };
 
         foreach ($attributes as $attribute) {
-            if ($attribute->methods && !\in_array($request->getMethod(), array_map('strtoupper', $attribute->methods), true)) {
-                continue;
-            }
+            $this->processAttribute($attribute, $request, $arguments, $controller);
+        }
+    }
 
-            $subject = null;
+    private function processAttribute(IsGranted $attribute, Request $request, array $arguments, ?object $controller): void
+    {
+        if ($attribute->methods && !\in_array($request->getMethod(), array_map('strtoupper', $attribute->methods), true)) {
+            return;
+        }
 
-            if ($subjectRef = $attribute->subject) {
-                if (\is_array($subjectRef)) {
-                    foreach ($subjectRef as $refKey => $ref) {
-                        $subject[\is_string($refKey) ? $refKey : (string) $ref] = $this->getIsGrantedSubject($ref, $request, $arguments, $controller);
-                    }
-                } else {
-                    $subject = $this->getIsGrantedSubject($subjectRef, $request, $arguments, $controller);
+        $subject = null;
+
+        if ($subjectRef = $attribute->subject) {
+            if (\is_array($subjectRef)) {
+                foreach ($subjectRef as $refKey => $ref) {
+                    $subject[\is_string($refKey) ? $refKey : (string) $ref] = $this->getIsGrantedSubject($ref, $request, $arguments, $controller);
                 }
+            } else {
+                $subject = $this->getIsGrantedSubject($subjectRef, $request, $arguments, $controller);
             }
-            $accessDecision = new AccessDecision();
+        }
+        $accessDecision = new AccessDecision();
 
-            if (!$accessDecision->isGranted = $this->authChecker->isGranted($attribute->attribute, $subject, $accessDecision)) {
-                $message = $attribute->message ?: $accessDecision->getMessage();
+        if (!$accessDecision->isGranted = $this->authChecker->isGranted($attribute->attribute, $subject, $accessDecision)) {
+            $message = $attribute->message ?: $accessDecision->getMessage();
 
-                if ($statusCode = $attribute->statusCode) {
-                    throw new HttpException($statusCode, $message, code: $attribute->exceptionCode ?? 0);
-                }
-
-                $e = new AccessDeniedException($message, code: $attribute->exceptionCode ?? 403);
-                $e->setAttributes([$attribute->attribute]);
-                $e->setSubject($subject);
-                $e->setAccessDecision($accessDecision);
-
-                throw $e;
+            if ($statusCode = $attribute->statusCode) {
+                throw new HttpException($statusCode, $message, code: $attribute->exceptionCode ?? 0);
             }
+
+            $e = new AccessDeniedException($message, code: $attribute->exceptionCode ?? 403);
+            $e->setAttributes([$attribute->attribute]);
+            $e->setSubject($subject);
+            $e->setAccessDecision($accessDecision);
+
+            throw $e;
         }
     }
 
     public static function getSubscribedEvents(): array
     {
-        return [KernelEvents::CONTROLLER_ARGUMENTS => ['onKernelControllerArguments', 20]];
+        if (!class_exists(ControllerAttributesListener::class, false)) {
+            return [KernelEvents::CONTROLLER_ARGUMENTS => ['onKernelControllerArguments', 20]];
+        }
+
+        return [
+            KernelEvents::CONTROLLER_ARGUMENTS.'.'.IsGranted::class => 'onKernelControllerAttribute',
+        ];
     }
 
     private function getIsGrantedSubject(string|Expression|\Closure $subjectRef, Request $request, array $arguments, ?object $controller): mixed

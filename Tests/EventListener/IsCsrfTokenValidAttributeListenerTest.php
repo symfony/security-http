@@ -12,15 +12,20 @@
 namespace Symfony\Component\Security\Http\Tests\EventListener;
 
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\RequiresMethod;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\ExpressionLanguage\Expression;
 use Symfony\Component\ExpressionLanguage\ExpressionLanguage;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Event\ControllerArgumentsEvent;
+use Symfony\Component\HttpKernel\Event\ControllerAttributeEvent;
+use Symfony\Component\HttpKernel\Event\ResponseEvent;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
 use Symfony\Component\Security\Core\Exception\InvalidCsrfTokenException;
 use Symfony\Component\Security\Csrf\CsrfToken;
 use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
+use Symfony\Component\Security\Http\Attribute\IsCsrfTokenValid;
 use Symfony\Component\Security\Http\EventListener\IsCsrfTokenValidAttributeListener;
 use Symfony\Component\Security\Http\Tests\Fixtures\IsCsrfTokenValidAttributeController;
 use Symfony\Component\Security\Http\Tests\Fixtures\IsCsrfTokenValidAttributeMethodsController;
@@ -395,5 +400,45 @@ class IsCsrfTokenValidAttributeListenerTest extends TestCase
             'withCustomTokenSourceHeaderAndCustomSourceToken',
             'bar_header',
         ];
+    }
+
+    #[RequiresMethod(ControllerAttributeEvent::class, '__construct')]
+    public function testonKernelControllerAttributeDelegatesControllerArgumentsEvent()
+    {
+        $request = new Request(request: ['_token' => 'bar']);
+
+        $csrfTokenManager = $this->createMock(CsrfTokenManagerInterface::class);
+        $csrfTokenManager->expects($this->once())
+            ->method('isTokenValid')
+            ->with(new CsrfToken('foo', 'bar'))
+            ->willReturn(true);
+
+        $controllerEvent = new ControllerArgumentsEvent(
+            $this->createStub(HttpKernelInterface::class),
+            new IsCsrfTokenValidAttributeController(),
+            [],
+            $request,
+            null
+        );
+
+        $listener = new IsCsrfTokenValidAttributeListener($csrfTokenManager);
+        $listener->onKernelControllerAttribute(new ControllerAttributeEvent(new IsCsrfTokenValid('foo'), $controllerEvent));
+    }
+
+    #[RequiresMethod(ControllerAttributeEvent::class, '__construct')]
+    public function testonKernelControllerAttributeIgnoresResponseEvent()
+    {
+        $csrfTokenManager = $this->createMock(CsrfTokenManagerInterface::class);
+        $csrfTokenManager->expects($this->never())->method('isTokenValid');
+
+        $event = new ResponseEvent(
+            $this->createStub(HttpKernelInterface::class),
+            new Request(),
+            HttpKernelInterface::MAIN_REQUEST,
+            new Response()
+        );
+
+        $listener = new IsCsrfTokenValidAttributeListener($csrfTokenManager);
+        $listener->onKernelControllerAttribute(new ControllerAttributeEvent(new IsCsrfTokenValid('foo'), $event));
     }
 }
