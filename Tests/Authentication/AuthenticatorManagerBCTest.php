@@ -14,13 +14,13 @@ namespace Symfony\Component\Security\Http\Tests\Authentication;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\IgnoreDeprecations;
-use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\AbstractLogger;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorage;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Authentication\Token\UsernamePasswordToken;
@@ -42,22 +42,21 @@ use Symfony\Component\Security\Http\Tests\Fixtures\DummySupportsAuthenticator;
 
 class AuthenticatorManagerBCTest extends TestCase
 {
-    private MockObject&TokenStorageInterface $tokenStorage;
+    private TokenStorageInterface $tokenStorage;
     private EventDispatcher $eventDispatcher;
     private Request $request;
     private InMemoryUser $user;
-    private MockObject&TokenInterface $token;
+    private TokenInterface $token;
     private Response $response;
 
     protected function setUp(): void
     {
-        $this->tokenStorage = $this->createMock(TokenStorageInterface::class);
+        $this->tokenStorage = new TokenStorage();
         $this->eventDispatcher = new EventDispatcher();
         $this->request = new Request();
         $this->user = new InMemoryUser('wouter', null);
-        $this->token = $this->createMock(TokenInterface::class);
-        $this->token->expects($this->any())->method('getUser')->willReturn($this->user);
-        $this->response = $this->createMock(Response::class);
+        $this->token = new UsernamePasswordToken($this->user, 'main');
+        $this->response = new Response();
     }
 
     #[IgnoreDeprecations]
@@ -102,7 +101,8 @@ class AuthenticatorManagerBCTest extends TestCase
         // the attribute stores the supported authenticators, returning false now
         // means support changed between calling supports() and authenticateRequest()
         // (which is the case with lazy firewalls)
-        $authenticator = $this->createAuthenticator(false);
+        $authenticator = $this->createMock(TestInteractiveBCAuthenticator::class);
+        $authenticator->expects($this->atLeastOnce())->method('supports')->willReturn(false);
         $this->request->attributes->set('_security_authenticators', [$authenticator]);
 
         $authenticator->expects($this->never())->method('authenticate');
@@ -116,13 +116,26 @@ class AuthenticatorManagerBCTest extends TestCase
     #[DataProvider('provideMatchingAuthenticatorIndex')]
     public function testAuthenticateRequest($matchingAuthenticatorIndex)
     {
-        $authenticators = [$this->createAuthenticator(0 === $matchingAuthenticatorIndex), $this->createAuthenticator(1 === $matchingAuthenticatorIndex)];
+        $matchingAuthenticator = $this->createStub(TestInteractiveBCAuthenticator::class);
+        $matchingAuthenticator->method('supports')->willReturn(true);
+        $notMatchingAuthenticator = $this->createMock(TestInteractiveBCAuthenticator::class);
+        $notMatchingAuthenticator->method('supports')->willReturn(false);
+        $notMatchingAuthenticator->expects($this->never())->method('authenticate');
+
+        if (0 === $matchingAuthenticatorIndex) {
+            $authenticators = [
+                $matchingAuthenticator,
+                $notMatchingAuthenticator,
+            ];
+        } else {
+            $authenticators = [
+                $notMatchingAuthenticator,
+                $matchingAuthenticator,
+            ];
+        }
         $this->request->attributes->set('_security_authenticators', $authenticators);
-        $matchingAuthenticator = $authenticators[$matchingAuthenticatorIndex];
 
-        $authenticators[($matchingAuthenticatorIndex + 1) % 2]->expects($this->never())->method('authenticate');
-
-        $matchingAuthenticator->expects($this->any())->method('authenticate')->willReturn(new SelfValidatingPassport(new UserBadge('wouter', fn () => $this->user)));
+        $matchingAuthenticator->method('authenticate')->willReturn(new SelfValidatingPassport(new UserBadge('wouter', fn () => $this->user)));
 
         $listenerCalled = false;
         $this->eventDispatcher->addListener(CheckPassportEvent::class, function (CheckPassportEvent $event) use (&$listenerCalled, $matchingAuthenticator) {
@@ -130,13 +143,12 @@ class AuthenticatorManagerBCTest extends TestCase
                 $listenerCalled = true;
             }
         });
-        $matchingAuthenticator->expects($this->any())->method('createToken')->willReturn($this->token);
-
-        $this->tokenStorage->expects($this->once())->method('setToken')->with($this->token);
+        $matchingAuthenticator->method('createToken')->willReturn($this->token);
 
         $manager = $this->createManager($authenticators, hideUserNotFoundExceptions: true);
         $this->assertNull($manager->authenticateRequest($this->request));
         $this->assertTrue($listenerCalled, 'The CheckPassportEvent listener is not called');
+        $this->assertSame($this->token, $this->tokenStorage->getToken());
     }
 
     public static function provideMatchingAuthenticatorIndex()
@@ -149,7 +161,7 @@ class AuthenticatorManagerBCTest extends TestCase
     #[Group('legacy')]
     public function testNoCredentialsValidated()
     {
-        $authenticator = $this->createAuthenticator();
+        $authenticator = $this->createMock(TestInteractiveBCAuthenticator::class);
         $this->request->attributes->set('_security_authenticators', [$authenticator]);
 
         $authenticator->expects($this->any())->method('authenticate')->willReturn(new Passport(new UserBadge('wouter', fn () => $this->user), new PasswordCredentials('pass')));
@@ -166,7 +178,7 @@ class AuthenticatorManagerBCTest extends TestCase
     #[Group('legacy')]
     public function testRequiredBadgeMissing()
     {
-        $authenticator = $this->createAuthenticator();
+        $authenticator = $this->createMock(TestInteractiveBCAuthenticator::class);
         $this->request->attributes->set('_security_authenticators', [$authenticator]);
 
         $authenticator->expects($this->any())->method('authenticate')->willReturn(new SelfValidatingPassport(new UserBadge('wouter')));
@@ -181,7 +193,7 @@ class AuthenticatorManagerBCTest extends TestCase
     #[Group('legacy')]
     public function testAllRequiredBadgesPresent()
     {
-        $authenticator = $this->createAuthenticator();
+        $authenticator = $this->createMock(TestInteractiveBCAuthenticator::class);
         $this->request->attributes->set('_security_authenticators', [$authenticator]);
 
         $csrfBadge = new CsrfTokenBadge('csrfid', 'csrftoken');
@@ -200,14 +212,14 @@ class AuthenticatorManagerBCTest extends TestCase
     #[DataProvider('provideEraseCredentialsData')]
     public function testEraseCredentials($eraseCredentials)
     {
-        $authenticator = $this->createAuthenticator();
+        $authenticator = $this->createStub(TestInteractiveBCAuthenticator::class);
         $this->request->attributes->set('_security_authenticators', [$authenticator]);
 
-        $authenticator->expects($this->any())->method('authenticate')->willReturn(new SelfValidatingPassport(new UserBadge('wouter', fn () => $this->user)));
+        $authenticator->method('authenticate')->willReturn(new SelfValidatingPassport(new UserBadge('wouter', fn () => $this->user)));
 
-        $authenticator->expects($this->any())->method('createToken')->willReturn($this->token);
-
-        $this->token->expects($eraseCredentials ? $this->once() : $this->never())->method('eraseCredentials');
+        $token = $this->createMock(TokenInterface::class);
+        $token->expects($eraseCredentials ? $this->once() : $this->never())->method('eraseCredentials');
+        $authenticator->method('createToken')->willReturn($token);
 
         $manager = $this->createManager([$authenticator], 'main', $eraseCredentials, hideUserNotFoundExceptions: true);
         $manager->authenticateRequest($this->request);
@@ -223,39 +235,36 @@ class AuthenticatorManagerBCTest extends TestCase
     #[Group('legacy')]
     public function testAuthenticateRequestCanModifyTokenFromEvent()
     {
-        $authenticator = $this->createAuthenticator();
+        $authenticator = $this->createStub(TestInteractiveBCAuthenticator::class);
         $this->request->attributes->set('_security_authenticators', [$authenticator]);
 
-        $authenticator->expects($this->any())->method('authenticate')->willReturn(new SelfValidatingPassport(new UserBadge('wouter', fn () => $this->user)));
+        $authenticator->method('authenticate')->willReturn(new SelfValidatingPassport(new UserBadge('wouter', fn () => $this->user)));
 
-        $authenticator->expects($this->any())->method('createToken')->willReturn($this->token);
+        $authenticator->method('createToken')->willReturn($this->token);
 
-        $modifiedToken = $this->createMock(TokenInterface::class);
-        $modifiedToken->expects($this->any())->method('getUser')->willReturn($this->user);
+        $modifiedToken = new UsernamePasswordToken($this->user, 'main');
         $listenerCalled = false;
         $this->eventDispatcher->addListener(AuthenticationTokenCreatedEvent::class, function (AuthenticationTokenCreatedEvent $event) use (&$listenerCalled, $modifiedToken) {
             $event->setAuthenticatedToken($modifiedToken);
             $listenerCalled = true;
         });
 
-        $this->tokenStorage->expects($this->once())->method('setToken')->with($this->identicalTo($modifiedToken));
-
         $manager = $this->createManager([$authenticator], hideUserNotFoundExceptions: true);
         $this->assertNull($manager->authenticateRequest($this->request));
         $this->assertTrue($listenerCalled, 'The AuthenticationTokenCreatedEvent listener is not called');
+        $this->assertSame($modifiedToken, $this->tokenStorage->getToken());
     }
 
     #[IgnoreDeprecations]
     #[Group('legacy')]
     public function testAuthenticateUser()
     {
-        $authenticator = $this->createAuthenticator();
-        $authenticator->expects($this->any())->method('onAuthenticationSuccess')->willReturn($this->response);
+        $authenticator = $this->createStub(TestInteractiveBCAuthenticator::class);
+        $authenticator->method('onAuthenticationSuccess')->willReturn($this->response);
 
         $badge = new UserBadge('alex');
 
         $authenticator
-            ->expects($this->any())
             ->method('createToken')
             ->willReturnCallback(function (Passport $passport) use ($badge) {
                 $this->assertSame(['attr' => 'foo', 'attr2' => 'bar'], $passport->getAttributes());
@@ -264,49 +273,44 @@ class AuthenticatorManagerBCTest extends TestCase
                 return $this->token;
             });
 
-        $this->tokenStorage->expects($this->once())->method('setToken')->with($this->token);
-
         $manager = $this->createManager([$authenticator], hideUserNotFoundExceptions: true);
         $manager->authenticateUser($this->user, $authenticator, $this->request, [$badge], ['attr' => 'foo', 'attr2' => 'bar']);
+        $this->assertSame($this->token, $this->tokenStorage->getToken());
     }
 
     #[IgnoreDeprecations]
     #[Group('legacy')]
     public function testAuthenticateUserCanModifyTokenFromEvent()
     {
-        $authenticator = $this->createAuthenticator();
-        $authenticator->expects($this->any())->method('createToken')->willReturn($this->token);
-        $authenticator->expects($this->any())->method('onAuthenticationSuccess')->willReturn($this->response);
+        $authenticator = $this->createStub(TestInteractiveBCAuthenticator::class);
+        $authenticator->method('createToken')->willReturn($this->token);
+        $authenticator->method('onAuthenticationSuccess')->willReturn($this->response);
 
-        $modifiedToken = $this->createMock(TokenInterface::class);
-        $modifiedToken->expects($this->any())->method('getUser')->willReturn($this->user);
+        $modifiedToken = new UsernamePasswordToken($this->user, 'main');
         $listenerCalled = false;
         $this->eventDispatcher->addListener(AuthenticationTokenCreatedEvent::class, function (AuthenticationTokenCreatedEvent $event) use (&$listenerCalled, $modifiedToken) {
             $event->setAuthenticatedToken($modifiedToken);
             $listenerCalled = true;
         });
 
-        $this->tokenStorage->expects($this->once())->method('setToken')->with($this->identicalTo($modifiedToken));
-
         $manager = $this->createManager([$authenticator], hideUserNotFoundExceptions: true);
         $manager->authenticateUser($this->user, $authenticator, $this->request);
         $this->assertTrue($listenerCalled, 'The AuthenticationTokenCreatedEvent listener is not called');
+        $this->assertSame($modifiedToken, $this->tokenStorage->getToken());
     }
 
     #[IgnoreDeprecations]
     #[Group('legacy')]
     public function testInteractiveAuthenticator()
     {
-        $authenticator = $this->createMock(TestInteractiveBCAuthenticator::class);
-        $authenticator->expects($this->any())->method('isInteractive')->willReturn(true);
+        $authenticator = $this->createStub(TestInteractiveBCAuthenticator::class);
+        $authenticator->method('isInteractive')->willReturn(true);
         $this->request->attributes->set('_security_authenticators', [$authenticator]);
 
-        $authenticator->expects($this->any())->method('authenticate')->willReturn(new SelfValidatingPassport(new UserBadge('wouter', fn () => $this->user)));
-        $authenticator->expects($this->any())->method('createToken')->willReturn($this->token);
+        $authenticator->method('authenticate')->willReturn(new SelfValidatingPassport(new UserBadge('wouter', fn () => $this->user)));
+        $authenticator->method('createToken')->willReturn($this->token);
 
-        $this->tokenStorage->expects($this->once())->method('setToken')->with($this->token);
-
-        $authenticator->expects($this->any())
+        $authenticator
             ->method('onAuthenticationSuccess')
             ->with($this->anything(), $this->token, 'main')
             ->willReturn($this->response);
@@ -314,22 +318,21 @@ class AuthenticatorManagerBCTest extends TestCase
         $manager = $this->createManager([$authenticator], hideUserNotFoundExceptions: true);
         $response = $manager->authenticateRequest($this->request);
         $this->assertSame($this->response, $response);
+        $this->assertSame($this->token, $this->tokenStorage->getToken());
     }
 
     #[IgnoreDeprecations]
     #[Group('legacy')]
     public function testLegacyInteractiveAuthenticator()
     {
-        $authenticator = $this->createMock(InteractiveAuthenticatorInterface::class);
-        $authenticator->expects($this->any())->method('isInteractive')->willReturn(true);
+        $authenticator = $this->createStub(InteractiveAuthenticatorInterface::class);
+        $authenticator->method('isInteractive')->willReturn(true);
         $this->request->attributes->set('_security_authenticators', [$authenticator]);
 
-        $authenticator->expects($this->any())->method('authenticate')->willReturn(new SelfValidatingPassport(new UserBadge('wouter', fn () => $this->user)));
-        $authenticator->expects($this->any())->method('createToken')->willReturn($this->token);
+        $authenticator->method('authenticate')->willReturn(new SelfValidatingPassport(new UserBadge('wouter', fn () => $this->user)));
+        $authenticator->method('createToken')->willReturn($this->token);
 
-        $this->tokenStorage->expects($this->once())->method('setToken')->with($this->token);
-
-        $authenticator->expects($this->any())
+        $authenticator
             ->method('onAuthenticationSuccess')
             ->with($this->anything(), $this->token, 'main')
             ->willReturn($this->response);
@@ -337,6 +340,7 @@ class AuthenticatorManagerBCTest extends TestCase
         $manager = $this->createManager([$authenticator], hideUserNotFoundExceptions: true);
         $response = $manager->authenticateRequest($this->request);
         $this->assertSame($this->response, $response);
+        $this->assertSame($this->token, $this->tokenStorage->getToken());
     }
 
     #[IgnoreDeprecations]
@@ -344,12 +348,12 @@ class AuthenticatorManagerBCTest extends TestCase
     public function testAuthenticateRequestHidesInvalidUserExceptions()
     {
         $invalidUserException = new UserNotFoundException();
-        $authenticator = $this->createMock(TestInteractiveBCAuthenticator::class);
+        $authenticator = $this->createStub(TestInteractiveBCAuthenticator::class);
         $this->request->attributes->set('_security_authenticators', [$authenticator]);
 
-        $authenticator->expects($this->any())->method('authenticate')->willThrowException($invalidUserException);
+        $authenticator->method('authenticate')->willThrowException($invalidUserException);
 
-        $authenticator->expects($this->any())
+        $authenticator
             ->method('onAuthenticationFailure')
             ->with($this->equalTo($this->request), $this->callback(fn ($e) => $e instanceof BadCredentialsException && $invalidUserException === $e->getPrevious()))
             ->willReturn($this->response);
@@ -364,12 +368,12 @@ class AuthenticatorManagerBCTest extends TestCase
     public function testAuthenticateRequestShowsAccountStatusException()
     {
         $invalidUserException = new LockedException();
-        $authenticator = $this->createMock(TestInteractiveBCAuthenticator::class);
+        $authenticator = $this->createStub(TestInteractiveBCAuthenticator::class);
         $this->request->attributes->set('_security_authenticators', [$authenticator]);
 
-        $authenticator->expects($this->any())->method('authenticate')->willThrowException($invalidUserException);
+        $authenticator->method('authenticate')->willThrowException($invalidUserException);
 
-        $authenticator->expects($this->any())
+        $authenticator
             ->method('onAuthenticationFailure')
             ->with($this->equalTo($this->request), $this->callback(fn ($e) => $e === $invalidUserException))
             ->willReturn($this->response);
@@ -384,12 +388,12 @@ class AuthenticatorManagerBCTest extends TestCase
     public function testAuthenticateRequestHidesInvalidAccountStatusException()
     {
         $invalidUserException = new LockedException();
-        $authenticator = $this->createMock(TestInteractiveBCAuthenticator::class);
+        $authenticator = $this->createStub(TestInteractiveBCAuthenticator::class);
         $this->request->attributes->set('_security_authenticators', [$authenticator]);
 
-        $authenticator->expects($this->any())->method('authenticate')->willThrowException($invalidUserException);
+        $authenticator->method('authenticate')->willThrowException($invalidUserException);
 
-        $authenticator->expects($this->any())
+        $authenticator
             ->method('onAuthenticationFailure')
             ->with($this->equalTo($this->request), $this->callback(fn ($e) => $e instanceof BadCredentialsException && $invalidUserException === $e->getPrevious()))
             ->willReturn($this->response);
@@ -403,21 +407,19 @@ class AuthenticatorManagerBCTest extends TestCase
     #[Group('legacy')]
     public function testLogsUseTheDecoratedAuthenticatorWhenItIsTraceable()
     {
-        $authenticator = $this->createMock(TestInteractiveBCAuthenticator::class);
-        $authenticator->expects($this->any())->method('isInteractive')->willReturn(true);
+        $authenticator = $this->createStub(TestInteractiveBCAuthenticator::class);
+        $authenticator->method('isInteractive')->willReturn(true);
         $this->request->attributes->set('_security_authenticators', [new TraceableAuthenticator($authenticator)]);
 
-        $authenticator->expects($this->any())->method('authenticate')->willReturn(new SelfValidatingPassport(new UserBadge('wouter', fn () => $this->user)));
-        $authenticator->expects($this->any())->method('createToken')->willReturn($this->token);
+        $authenticator->method('authenticate')->willReturn(new SelfValidatingPassport(new UserBadge('wouter', fn () => $this->user)));
+        $authenticator->method('createToken')->willReturn($this->token);
 
-        $this->tokenStorage->expects($this->once())->method('setToken')->with($this->token);
-
-        $authenticator->expects($this->any())
+        $authenticator
             ->method('onAuthenticationSuccess')
             ->with($this->anything(), $this->token, 'main')
             ->willReturn($this->response);
 
-        $authenticator->expects($this->any())
+        $authenticator
             ->method('onAuthenticationSuccess')
             ->with($this->anything(), $this->token, 'main')
             ->willReturn($this->response);
@@ -437,12 +439,13 @@ class AuthenticatorManagerBCTest extends TestCase
         $response = $manager->authenticateRequest($this->request);
         $this->assertSame($this->response, $response);
         $this->assertStringContainsString($authenticator::class, $logger->logContexts[0]['authenticator']);
+        $this->assertSame($this->token, $this->tokenStorage->getToken());
     }
 
     private function createAuthenticator(?bool $supports = true)
     {
         $authenticator = $this->createMock(TestInteractiveBCAuthenticator::class);
-        $authenticator->expects($this->any())->method('supports')->willReturn($supports);
+        $authenticator->expects($this->atLeastOnce())->method('supports')->willReturn($supports);
 
         return $authenticator;
     }
