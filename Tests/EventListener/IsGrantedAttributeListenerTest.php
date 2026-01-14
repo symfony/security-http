@@ -603,7 +603,7 @@ class IsGrantedAttributeListenerTest extends TestCase
         );
 
         // Inject mixed attributes: one IsGranted and one unrelated object; only IsGranted should be processed
-        $event->setController($controller, property_exists(ResponseEvent::class, 'controllerArgumentsEvent') ? [
+        $event->setController($controller, property_exists(ResponseEvent::class, 'controllerMetadata') ? [
             new IsGranted('ROLE_ADMIN'),
             new \stdClass(),
         ] : [
@@ -635,7 +635,7 @@ class IsGrantedAttributeListenerTest extends TestCase
         $custom = new class('ROLE_ADMIN') extends IsGranted {};
 
         // Inject subclass instance; instanceof IsGranted should match
-        $event->setController($controller, property_exists(ResponseEvent::class, 'controllerArgumentsEvent') ? [
+        $event->setController($controller, property_exists(ResponseEvent::class, 'controllerMetadata') ? [
             $custom,
         ] : [
             $custom::class => [$custom],
