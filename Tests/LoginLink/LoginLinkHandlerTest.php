@@ -311,11 +311,6 @@ class TestLoginLinkHandlerUser implements UserInterface
     {
         return $this->username;
     }
-
-    #[\Deprecated]
-    public function eraseCredentials(): void
-    {
-    }
 }
 
 class TestLoginLinkHandlerUserProvider implements UserProviderInterface

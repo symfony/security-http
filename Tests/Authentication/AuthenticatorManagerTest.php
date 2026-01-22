@@ -172,7 +172,7 @@ class AuthenticatorManagerTest extends TestCase
 
         $authenticator->expects($this->once())->method('onAuthenticationFailure')->with($this->anything(), $this->callback(static fn ($exception) => 'Authentication failed; Some badges marked as required by the firewall config are not available on the passport: "'.CsrfTokenBadge::class.'".' === $exception->getMessage()));
 
-        $manager = $this->createManager([$authenticator], 'main', true, [CsrfTokenBadge::class], exposeSecurityErrors: ExposeSecurityLevel::None);
+        $manager = $this->createManager([$authenticator], 'main', [CsrfTokenBadge::class], exposeSecurityErrors: ExposeSecurityLevel::None);
         $manager->authenticateRequest($this->request);
     }
 
@@ -188,7 +188,7 @@ class AuthenticatorManagerTest extends TestCase
 
         $authenticator->expects($this->once())->method('onAuthenticationSuccess');
 
-        $manager = $this->createManager([$authenticator], 'main', true, [CsrfTokenBadge::class], exposeSecurityErrors: ExposeSecurityLevel::None);
+        $manager = $this->createManager([$authenticator], 'main', [CsrfTokenBadge::class], exposeSecurityErrors: ExposeSecurityLevel::None);
         $manager->authenticateRequest($this->request);
     }
 
@@ -379,7 +379,7 @@ class AuthenticatorManagerTest extends TestCase
             }
         };
 
-        $manager = $this->createManager([$authenticator], 'main', false, [], $logger, exposeSecurityErrors: ExposeSecurityLevel::None);
+        $manager = $this->createManager([$authenticator], 'main', [], $logger, exposeSecurityErrors: ExposeSecurityLevel::None);
         $response = $manager->authenticateRequest($this->request);
         $this->assertSame($this->response, $response);
         $this->assertStringContainsString($authenticator::class, $logger->logContexts[0]['authenticator']);
@@ -391,9 +391,9 @@ class AuthenticatorManagerTest extends TestCase
         return new DummySupportsAuthenticator($supports);
     }
 
-    private function createManager($authenticators, $firewallName = 'main', $eraseCredentials = false, array $requiredBadges = [], ?LoggerInterface $logger = null, ExposeSecurityLevel $exposeSecurityErrors = ExposeSecurityLevel::AccountStatus)
+    private function createManager($authenticators, $firewallName = 'main', array $requiredBadges = [], ?LoggerInterface $logger = null, ExposeSecurityLevel $exposeSecurityErrors = ExposeSecurityLevel::AccountStatus)
     {
-        return new AuthenticatorManager($authenticators, $this->tokenStorage, $this->eventDispatcher, $firewallName, $logger, $eraseCredentials, $exposeSecurityErrors, $requiredBadges);
+        return new AuthenticatorManager($authenticators, $this->tokenStorage, $this->eventDispatcher, $firewallName, $logger, false, $exposeSecurityErrors, $requiredBadges);
     }
 }
 
