@@ -316,12 +316,12 @@ class AuthenticatorManagerTest extends TestCase
     public function testAuthenticateRequestShowsAccountStatusException()
     {
         $invalidUserException = new LockedException();
-        $authenticator = $this->createMock(TestInteractiveAuthenticator::class);
+        $authenticator = $this->createStub(TestInteractiveAuthenticator::class);
         $this->request->attributes->set('_security_authenticators', [$authenticator]);
 
-        $authenticator->expects($this->any())->method('authenticate')->willThrowException($invalidUserException);
+        $authenticator->method('authenticate')->willThrowException($invalidUserException);
 
-        $authenticator->expects($this->any())
+        $authenticator
             ->method('onAuthenticationFailure')
             ->with($this->equalTo($this->request), $this->callback(static fn ($e) => $e === $invalidUserException))
             ->willReturn($this->response);
@@ -334,12 +334,12 @@ class AuthenticatorManagerTest extends TestCase
     public function testAuthenticateRequestHidesInvalidAccountStatusException()
     {
         $invalidUserException = new LockedException();
-        $authenticator = $this->createMock(TestInteractiveAuthenticator::class);
+        $authenticator = $this->createStub(TestInteractiveAuthenticator::class);
         $this->request->attributes->set('_security_authenticators', [$authenticator]);
 
-        $authenticator->expects($this->any())->method('authenticate')->willThrowException($invalidUserException);
+        $authenticator->method('authenticate')->willThrowException($invalidUserException);
 
-        $authenticator->expects($this->any())
+        $authenticator
             ->method('onAuthenticationFailure')
             ->with($this->equalTo($this->request), $this->callback(static fn ($e) => $e instanceof BadCredentialsException && $invalidUserException === $e->getPrevious()))
             ->willReturn($this->response);

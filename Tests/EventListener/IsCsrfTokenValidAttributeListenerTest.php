@@ -38,7 +38,7 @@ class IsCsrfTokenValidAttributeListenerTest extends TestCase
             ->willReturn(true);
 
         $event = new ControllerArgumentsEvent(
-            $this->createMock(HttpKernelInterface::class),
+            $this->createStub(HttpKernelInterface::class),
             new IsCsrfTokenValidAttributeController(),
             [],
             $request,
@@ -56,7 +56,7 @@ class IsCsrfTokenValidAttributeListenerTest extends TestCase
             ->method('isTokenValid');
 
         $event = new ControllerArgumentsEvent(
-            $this->createMock(HttpKernelInterface::class),
+            $this->createStub(HttpKernelInterface::class),
             [new IsCsrfTokenValidAttributeMethodsController(), 'noAttribute'],
             [],
             new Request(),
@@ -78,7 +78,7 @@ class IsCsrfTokenValidAttributeListenerTest extends TestCase
             ->willReturn(true);
 
         $event = new ControllerArgumentsEvent(
-            $this->createMock(HttpKernelInterface::class),
+            $this->createStub(HttpKernelInterface::class),
             [new IsCsrfTokenValidAttributeMethodsController(), 'withDefaultTokenKey'],
             [],
             $request,
@@ -100,7 +100,7 @@ class IsCsrfTokenValidAttributeListenerTest extends TestCase
             ->willReturn(true);
 
         $event = new ControllerArgumentsEvent(
-            $this->createMock(HttpKernelInterface::class),
+            $this->createStub(HttpKernelInterface::class),
             [new IsCsrfTokenValidAttributeMethodsController(), 'withDefaultTokenKey'],
             [],
             $request,
@@ -131,7 +131,7 @@ class IsCsrfTokenValidAttributeListenerTest extends TestCase
             ->willReturn('foo_123');
 
         $event = new ControllerArgumentsEvent(
-            $this->createMock(HttpKernelInterface::class),
+            $this->createStub(HttpKernelInterface::class),
             [new IsCsrfTokenValidAttributeMethodsController(), 'withCustomExpressionId'],
             ['123'],
             $request,
@@ -153,7 +153,7 @@ class IsCsrfTokenValidAttributeListenerTest extends TestCase
             ->willReturn(true);
 
         $event = new ControllerArgumentsEvent(
-            $this->createMock(HttpKernelInterface::class),
+            $this->createStub(HttpKernelInterface::class),
             [new IsCsrfTokenValidAttributeMethodsController(), 'withCustomTokenKey'],
             [],
             $request,
@@ -175,7 +175,7 @@ class IsCsrfTokenValidAttributeListenerTest extends TestCase
             ->method('isTokenValid');
 
         $event = new ControllerArgumentsEvent(
-            $this->createMock(HttpKernelInterface::class),
+            $this->createStub(HttpKernelInterface::class),
             [new IsCsrfTokenValidAttributeMethodsController(), 'withInvalidTokenKey'],
             [],
             $request,
@@ -195,7 +195,7 @@ class IsCsrfTokenValidAttributeListenerTest extends TestCase
             ->method('isTokenValid');
 
         $event = new ControllerArgumentsEvent(
-            $this->createMock(HttpKernelInterface::class),
+            $this->createStub(HttpKernelInterface::class),
             [new IsCsrfTokenValidAttributeMethodsController(), 'withDefaultTokenKey'],
             [],
             new Request(),
@@ -218,7 +218,7 @@ class IsCsrfTokenValidAttributeListenerTest extends TestCase
             ->willReturn(true);
 
         $event = new ControllerArgumentsEvent(
-            $this->createMock(HttpKernelInterface::class),
+            $this->createStub(HttpKernelInterface::class),
             [new IsCsrfTokenValidAttributeMethodsController(), 'withDeleteMethod'],
             [],
             $request,
@@ -239,7 +239,7 @@ class IsCsrfTokenValidAttributeListenerTest extends TestCase
             ->method('isTokenValid');
 
         $event = new ControllerArgumentsEvent(
-            $this->createMock(HttpKernelInterface::class),
+            $this->createStub(HttpKernelInterface::class),
             [new IsCsrfTokenValidAttributeMethodsController(), 'withDeleteMethod'],
             [],
             $request,
@@ -262,7 +262,7 @@ class IsCsrfTokenValidAttributeListenerTest extends TestCase
             ->willReturn(true);
 
         $event = new ControllerArgumentsEvent(
-            $this->createMock(HttpKernelInterface::class),
+            $this->createStub(HttpKernelInterface::class),
             [new IsCsrfTokenValidAttributeMethodsController(), 'withGetOrPostMethod'],
             [],
             $request,
@@ -283,7 +283,7 @@ class IsCsrfTokenValidAttributeListenerTest extends TestCase
             ->method('isTokenValid');
 
         $event = new ControllerArgumentsEvent(
-            $this->createMock(HttpKernelInterface::class),
+            $this->createStub(HttpKernelInterface::class),
             [new IsCsrfTokenValidAttributeMethodsController(), 'withGetOrPostMethod'],
             [],
             $request,
@@ -306,7 +306,7 @@ class IsCsrfTokenValidAttributeListenerTest extends TestCase
             ->method('isTokenValid');
 
         $event = new ControllerArgumentsEvent(
-            $this->createMock(HttpKernelInterface::class),
+            $this->createStub(HttpKernelInterface::class),
             [new IsCsrfTokenValidAttributeMethodsController(), 'withPostMethodAndInvalidTokenKey'],
             [],
             $request,
@@ -327,7 +327,7 @@ class IsCsrfTokenValidAttributeListenerTest extends TestCase
             ->method('isTokenValid');
 
         $event = new ControllerArgumentsEvent(
-            $this->createMock(HttpKernelInterface::class),
+            $this->createStub(HttpKernelInterface::class),
             [new IsCsrfTokenValidAttributeMethodsController(), 'withPostMethodAndInvalidTokenKey'],
             [],
             $request,
@@ -348,7 +348,7 @@ class IsCsrfTokenValidAttributeListenerTest extends TestCase
             ->willReturn(true);
 
         $event = new ControllerArgumentsEvent(
-            $this->createMock(HttpKernelInterface::class),
+            $this->createStub(HttpKernelInterface::class),
             [new IsCsrfTokenValidAttributeMethodsController(), $attributeMethod],
             [],
             $request,
