@@ -589,6 +589,11 @@ class CustomToken implements TokenInterface
         return $this->getUserIdentifier();
     }
 
+    #[\Deprecated]
+    public function eraseCredentials(): void
+    {
+    }
+
     public function getAttributes(): array
     {
         return [];
