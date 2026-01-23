@@ -39,10 +39,6 @@ final class CustomUser implements UserInterface, PasswordAuthenticatedUserInterf
         return $this->password ?? null;
     }
 
-    public function eraseCredentials(): void
-    {
-    }
-
     public function __serialize(): array
     {
         $data = (array) $this;
