@@ -338,18 +338,20 @@ class IsGrantedAttributeListenerTest extends TestCase
             ->with(new Expression('user === subject'), 'author')
             ->willReturn(true);
 
+        $controllerInstance = new IsGrantedAttributeMethodsController();
         $expressionLanguage = $this->createMock(ExpressionLanguage::class);
         $expressionLanguage->expects($this->once())
             ->method('evaluate')
             ->with(new Expression('args["post"].getAuthor()'), [
                 'args' => ['post' => 'postVal'],
                 'request' => $request,
+                'this' => $controllerInstance,
             ])
             ->willReturn('author');
 
         $event = new ControllerArgumentsEvent(
             $this->createStub(HttpKernelInterface::class),
-            [new IsGrantedAttributeMethodsController(), 'withExpressionInSubject'],
+            [$controllerInstance, 'withExpressionInSubject'],
             ['postVal'],
             $request,
             null
@@ -369,18 +371,20 @@ class IsGrantedAttributeListenerTest extends TestCase
             ->with(new Expression('user === subject["author"]'), ['author' => 'author', 'alias' => 'arg2Val'])
             ->willReturn(true);
 
+        $controllerInstance = new IsGrantedAttributeMethodsController();
         $expressionLanguage = $this->createMock(ExpressionLanguage::class);
         $expressionLanguage->expects($this->once())
             ->method('evaluate')
             ->with(new Expression('args["post"].getAuthor()'), [
                 'args' => ['post' => 'postVal', 'arg2Name' => 'arg2Val'],
                 'request' => $request,
+                'this' => $controllerInstance,
             ])
             ->willReturn('author');
 
         $event = new ControllerArgumentsEvent(
             $this->createStub(HttpKernelInterface::class),
-            [new IsGrantedAttributeMethodsController(), 'withNestedExpressionInSubject'],
+            [$controllerInstance, 'withNestedExpressionInSubject'],
             ['postVal', 'arg2Val'],
             $request,
             null
@@ -406,6 +410,49 @@ class IsGrantedAttributeListenerTest extends TestCase
             [],
             $request,
             null
+        );
+
+        $listener = new IsGrantedAttributeListener($authChecker, new ExpressionLanguage());
+        $listener->onKernelControllerArguments($event);
+    }
+
+    public function testIsGrantedWithControllerPropertyAsSubject()
+    {
+        $controller = [new IsGrantedAttributeMethodsController(), 'withControllerPropertyAsSubject'];
+
+        $authChecker = $this->createMock(AuthorizationCheckerInterface::class);
+        $authChecker->expects($this->once())
+            ->method('isGranted')
+            ->with('SOME_VOTER', 42)
+            ->willReturn(true);
+
+        $event = new ControllerArgumentsEvent(
+            $this->createStub(HttpKernelInterface::class),
+            $controller,
+            [],
+            new Request(),
+            null
+        );
+
+        $listener = new IsGrantedAttributeListener($authChecker, new ExpressionLanguage());
+        $listener->onKernelControllerArguments($event);
+    }
+
+    public function testIsGrantedWithNonClassController()
+    {
+        $controller = #[IsGranted('SOME_VOTER', new Expression('this'))] static fn () => true;
+        $authChecker = $this->createMock(AuthorizationCheckerInterface::class);
+        $authChecker->expects($this->once())
+            ->method('isGranted')
+            ->with('SOME_VOTER', null)
+            ->willReturn(true);
+
+        $event = new ControllerArgumentsEvent(
+            $this->createStub(HttpKernelInterface::class),
+            $controller,
+            [],
+            new Request(),
+            null,
         );
 
         $listener = new IsGrantedAttributeListener($authChecker, new ExpressionLanguage());
