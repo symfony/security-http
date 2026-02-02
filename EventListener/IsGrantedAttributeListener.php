@@ -53,6 +53,13 @@ class IsGrantedAttributeListener implements EventSubscriberInterface
         $request = $event->getRequest();
         $arguments = $event->getNamedArguments();
 
+        $controller = $event->getController();
+        $controller = match (true) {
+            \is_object($controller) && !$controller instanceof \Closure => $controller,
+            \is_array($controller) && \is_object($controller[0]) => $controller[0],
+            default => null,
+        };
+
         foreach ($attributes as $attribute) {
             if ($attribute->methods && !\in_array($request->getMethod(), array_map('strtoupper', $attribute->methods), true)) {
                 continue;
@@ -63,10 +70,10 @@ class IsGrantedAttributeListener implements EventSubscriberInterface
             if ($subjectRef = $attribute->subject) {
                 if (\is_array($subjectRef)) {
                     foreach ($subjectRef as $refKey => $ref) {
-                        $subject[\is_string($refKey) ? $refKey : (string) $ref] = $this->getIsGrantedSubject($ref, $request, $arguments);
+                        $subject[\is_string($refKey) ? $refKey : (string) $ref] = $this->getIsGrantedSubject($ref, $request, $arguments, $controller);
                     }
                 } else {
-                    $subject = $this->getIsGrantedSubject($subjectRef, $request, $arguments);
+                    $subject = $this->getIsGrantedSubject($subjectRef, $request, $arguments, $controller);
                 }
             }
             $accessDecision = new AccessDecision();
@@ -93,10 +100,10 @@ class IsGrantedAttributeListener implements EventSubscriberInterface
         return [KernelEvents::CONTROLLER_ARGUMENTS => ['onKernelControllerArguments', 20]];
     }
 
-    private function getIsGrantedSubject(string|Expression|\Closure $subjectRef, Request $request, array $arguments): mixed
+    private function getIsGrantedSubject(string|Expression|\Closure $subjectRef, Request $request, array $arguments, ?object $controller): mixed
     {
         if ($subjectRef instanceof \Closure) {
-            return $subjectRef($arguments, $request);
+            return $subjectRef($arguments, $request, $controller);
         }
 
         if ($subjectRef instanceof Expression) {
@@ -105,6 +112,7 @@ class IsGrantedAttributeListener implements EventSubscriberInterface
             return $this->expressionLanguage->evaluate($subjectRef, [
                 'request' => $request,
                 'args' => $arguments,
+                'this' => $controller,
             ]);
         }
 

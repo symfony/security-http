@@ -5,6 +5,7 @@ CHANGELOG
 ---
 
  * Add support for the `clientHints`, `prefetchCache`, and `prerenderCache` `ClearSite-Data` directives
+ * Add `this` to `#[IsGranted]` subject expression variables when available
 
 8.0
 ---
