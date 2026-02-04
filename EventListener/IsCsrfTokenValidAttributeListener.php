@@ -12,7 +12,6 @@
 namespace Symfony\Component\Security\Http\EventListener;
 
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
-use Symfony\Component\ExpressionLanguage\Expression;
 use Symfony\Component\ExpressionLanguage\ExpressionLanguage;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\ControllerArgumentsEvent;
@@ -42,22 +41,20 @@ final class IsCsrfTokenValidAttributeListener implements EventSubscriberInterfac
             return;
         }
 
-        $this->processAttribute($event->attribute, $kernelEvent->getRequest(), $kernelEvent->getNamedArguments());
+        $this->processAttribute($event->attribute, $kernelEvent);
     }
 
     public function onKernelControllerArguments(ControllerArgumentsEvent $event): void
     {
-        $request = $event->getRequest();
-        $arguments = $event->getNamedArguments();
-
         foreach ($event->getAttributes(IsCsrfTokenValid::class) as $attribute) {
-            $this->processAttribute($attribute, $request, $arguments);
+            $this->processAttribute($attribute, $event);
         }
     }
 
-    private function processAttribute(IsCsrfTokenValid $attribute, Request $request, array $arguments): void
+    private function processAttribute(IsCsrfTokenValid $attribute, ControllerArgumentsEvent $event): void
     {
-        $id = $this->getTokenId($attribute->id, $request, $arguments);
+        $request = $event->getRequest();
+        $id = $event->evaluate($attribute->id, $this->expressionLanguage);
         $methods = array_map('strtoupper', (array) $attribute->methods);
 
         if ($methods && !\in_array($request->getMethod(), $methods, true)) {
@@ -82,20 +79,6 @@ final class IsCsrfTokenValidAttributeListener implements EventSubscriberInterfac
         return [
             KernelEvents::CONTROLLER_ARGUMENTS.'.'.IsCsrfTokenValid::class => 'onKernelControllerAttribute',
         ];
-    }
-
-    private function getTokenId(string|Expression $id, Request $request, array $arguments): string
-    {
-        if (!$id instanceof Expression) {
-            return $id;
-        }
-
-        $this->expressionLanguage ??= new ExpressionLanguage();
-
-        return (string) $this->expressionLanguage->evaluate($id, [
-            'request' => $request,
-            'args' => $arguments,
-        ]);
     }
 
     private function getTokenValue(Request $request, int $tokenSource, string $tokenKey): ?string

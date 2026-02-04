@@ -119,6 +119,7 @@ class IsCsrfTokenValidAttributeListenerTest extends TestCase
     public function testIsCsrfTokenValidCalledCorrectlyWithCustomExpressionId()
     {
         $request = new Request(query: ['id' => '123'], request: ['_token' => 'bar']);
+        $controller = new IsCsrfTokenValidAttributeMethodsController();
 
         $csrfTokenManager = $this->createMock(CsrfTokenManagerInterface::class);
         $csrfTokenManager->expects($this->once())
@@ -132,8 +133,31 @@ class IsCsrfTokenValidAttributeListenerTest extends TestCase
             ->with(new Expression('"foo_" ~ args.id'), [
                 'args' => ['id' => '123'],
                 'request' => $request,
+                'this' => $controller,
             ])
             ->willReturn('foo_123');
+
+        $event = new ControllerArgumentsEvent(
+            $this->createStub(HttpKernelInterface::class),
+            [$controller, 'withCustomExpressionId'],
+            ['123'],
+            $request,
+            null
+        );
+
+        $listener = new IsCsrfTokenValidAttributeListener($csrfTokenManager, $expressionLanguage);
+        $listener->onKernelControllerArguments($event);
+    }
+
+    public function testIsCsrfTokenValidCalledCorrectlyWithClosureId()
+    {
+        $request = new Request(request: ['_token' => 'bar']);
+
+        $csrfTokenManager = $this->createMock(CsrfTokenManagerInterface::class);
+        $csrfTokenManager->expects($this->once())
+            ->method('isTokenValid')
+            ->with(new CsrfToken('foo_123', 'bar'))
+            ->willReturn(true);
 
         $event = new ControllerArgumentsEvent(
             $this->createStub(HttpKernelInterface::class),
@@ -143,8 +167,10 @@ class IsCsrfTokenValidAttributeListenerTest extends TestCase
             null
         );
 
-        $listener = new IsCsrfTokenValidAttributeListener($csrfTokenManager, $expressionLanguage);
-        $listener->onKernelControllerArguments($event);
+        $attribute = new IsCsrfTokenValid(static fn (array $args, Request $request, ?object $controller): string => 'foo_'.$args['id']);
+
+        $listener = new IsCsrfTokenValidAttributeListener($csrfTokenManager);
+        $listener->onKernelControllerAttribute(new ControllerAttributeEvent($attribute, $event));
     }
 
     public function testIsCsrfTokenValidCalledCorrectlyWithCustomTokenKey()

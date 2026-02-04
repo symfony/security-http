@@ -6,6 +6,7 @@ CHANGELOG
 
  * Add support for the `clientHints`, `prefetchCache`, and `prerenderCache` `ClearSite-Data` directives
  * Add `this` to `#[IsGranted]` subject expression variables when available
+ * Add support for closures and `this` in `#[IsCsrfTokenValid]` when evaluating its `id`
 
 8.0
 ---

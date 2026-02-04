@@ -14,7 +14,6 @@ namespace Symfony\Component\Security\Http\EventListener;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\ExpressionLanguage\Expression;
 use Symfony\Component\ExpressionLanguage\ExpressionLanguage;
-use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\ControllerArgumentsEvent;
 use Symfony\Component\HttpKernel\Event\ControllerAttributeEvent;
 use Symfony\Component\HttpKernel\EventListener\ControllerAttributesListener;
@@ -47,14 +46,7 @@ class IsGrantedAttributeListener implements EventSubscriberInterface
             return;
         }
 
-        $controller = $kernelEvent->getController();
-        $controller = match (true) {
-            \is_object($controller) && !$controller instanceof \Closure => $controller,
-            \is_array($controller) && \is_object($controller[0]) => $controller[0],
-            default => null,
-        };
-
-        $this->processAttribute($event->attribute, $kernelEvent->getRequest(), $kernelEvent->getNamedArguments(), $controller);
+        $this->processAttribute($event->attribute, $kernelEvent);
     }
 
     /**
@@ -73,23 +65,15 @@ class IsGrantedAttributeListener implements EventSubscriberInterface
             return;
         }
 
-        $request = $event->getRequest();
-        $arguments = $event->getNamedArguments();
-
-        $controller = $event->getController();
-        $controller = match (true) {
-            \is_object($controller) && !$controller instanceof \Closure => $controller,
-            \is_array($controller) && \is_object($controller[0]) => $controller[0],
-            default => null,
-        };
-
         foreach ($attributes as $attribute) {
-            $this->processAttribute($attribute, $request, $arguments, $controller);
+            $this->processAttribute($attribute, $event);
         }
     }
 
-    private function processAttribute(IsGranted $attribute, Request $request, array $arguments, ?object $controller): void
+    private function processAttribute(IsGranted $attribute, ControllerArgumentsEvent $event): void
     {
+        $request = $event->getRequest();
+
         if ($attribute->methods && !\in_array($request->getMethod(), array_map('strtoupper', $attribute->methods), true)) {
             return;
         }
@@ -99,10 +83,10 @@ class IsGrantedAttributeListener implements EventSubscriberInterface
         if ($subjectRef = $attribute->subject) {
             if (\is_array($subjectRef)) {
                 foreach ($subjectRef as $refKey => $ref) {
-                    $subject[\is_string($refKey) ? $refKey : (string) $ref] = $this->getIsGrantedSubject($ref, $request, $arguments, $controller);
+                    $subject[\is_string($refKey) ? $refKey : (string) $ref] = $this->getIsGrantedSubject($ref, $event);
                 }
             } else {
-                $subject = $this->getIsGrantedSubject($subjectRef, $request, $arguments, $controller);
+                $subject = $this->getIsGrantedSubject($subjectRef, $event);
             }
         }
         $accessDecision = new AccessDecision();
@@ -134,21 +118,13 @@ class IsGrantedAttributeListener implements EventSubscriberInterface
         ];
     }
 
-    private function getIsGrantedSubject(string|Expression|\Closure $subjectRef, Request $request, array $arguments, ?object $controller): mixed
+    private function getIsGrantedSubject(string|Expression|\Closure $subjectRef, ControllerArgumentsEvent $event): mixed
     {
-        if ($subjectRef instanceof \Closure) {
-            return $subjectRef($arguments, $request, $controller);
+        if ($subjectRef instanceof \Closure || $subjectRef instanceof Expression) {
+            return $event->evaluate($subjectRef, $this->expressionLanguage);
         }
 
-        if ($subjectRef instanceof Expression) {
-            $this->expressionLanguage ??= new ExpressionLanguage();
-
-            return $this->expressionLanguage->evaluate($subjectRef, [
-                'request' => $request,
-                'args' => $arguments,
-                'this' => $controller,
-            ]);
-        }
+        $arguments = $event->getNamedArguments();
 
         if (!\array_key_exists($subjectRef, $arguments)) {
             throw new RuntimeException(\sprintf('Could not find the subject "%s" for the #[IsGranted] attribute. Try adding a "$%s" argument to your controller method.', $subjectRef, $subjectRef));
