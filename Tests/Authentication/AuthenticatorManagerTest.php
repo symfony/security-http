@@ -297,7 +297,7 @@ class AuthenticatorManagerTest extends TestCase
 
     public function testInteractiveAuthenticator()
     {
-        $authenticator = $this->createStub(TestInteractiveAuthenticator::class);
+        $authenticator = $this->createMock(TestInteractiveAuthenticator::class);
         $authenticator->method('isInteractive')->willReturn(true);
         $this->request->attributes->set('_security_authenticators', [$authenticator]);
 
@@ -305,6 +305,7 @@ class AuthenticatorManagerTest extends TestCase
         $authenticator->method('createToken')->willReturn($this->token);
 
         $authenticator
+            ->expects($this->once())
             ->method('onAuthenticationSuccess')
             ->with($this->anything(), $this->token, 'main')
             ->willReturn($this->response);
@@ -317,7 +318,7 @@ class AuthenticatorManagerTest extends TestCase
 
     public function testLegacyInteractiveAuthenticator()
     {
-        $authenticator = $this->createStub(InteractiveAuthenticatorInterface::class);
+        $authenticator = $this->createMock(InteractiveAuthenticatorInterface::class);
         $authenticator->method('isInteractive')->willReturn(true);
         $this->request->attributes->set('_security_authenticators', [$authenticator]);
 
@@ -325,6 +326,7 @@ class AuthenticatorManagerTest extends TestCase
         $authenticator->method('createToken')->willReturn($this->token);
 
         $authenticator
+            ->expects($this->once())
             ->method('onAuthenticationSuccess')
             ->with($this->anything(), $this->token, 'main')
             ->willReturn($this->response);
@@ -338,12 +340,13 @@ class AuthenticatorManagerTest extends TestCase
     public function testAuthenticateRequestHidesInvalidUserExceptions()
     {
         $invalidUserException = new UserNotFoundException();
-        $authenticator = $this->createStub(TestInteractiveAuthenticator::class);
+        $authenticator = $this->createMock(TestInteractiveAuthenticator::class);
         $this->request->attributes->set('_security_authenticators', [$authenticator]);
 
         $authenticator->method('authenticate')->willThrowException($invalidUserException);
 
         $authenticator
+            ->expects($this->once())
             ->method('onAuthenticationFailure')
             ->with($this->equalTo($this->request), $this->callback(fn ($e) => $e instanceof BadCredentialsException && $invalidUserException === $e->getPrevious()))
             ->willReturn($this->response);
@@ -356,12 +359,13 @@ class AuthenticatorManagerTest extends TestCase
     public function testAuthenticateRequestShowsAccountStatusException()
     {
         $invalidUserException = new LockedException();
-        $authenticator = $this->createStub(TestInteractiveAuthenticator::class);
+        $authenticator = $this->createMock(TestInteractiveAuthenticator::class);
         $this->request->attributes->set('_security_authenticators', [$authenticator]);
 
         $authenticator->method('authenticate')->willThrowException($invalidUserException);
 
         $authenticator
+            ->expects($this->once())
             ->method('onAuthenticationFailure')
             ->with($this->equalTo($this->request), $this->callback(fn ($e) => $e === $invalidUserException))
             ->willReturn($this->response);
@@ -374,12 +378,13 @@ class AuthenticatorManagerTest extends TestCase
     public function testAuthenticateRequestHidesInvalidAccountStatusException()
     {
         $invalidUserException = new LockedException();
-        $authenticator = $this->createStub(TestInteractiveAuthenticator::class);
+        $authenticator = $this->createMock(TestInteractiveAuthenticator::class);
         $this->request->attributes->set('_security_authenticators', [$authenticator]);
 
         $authenticator->method('authenticate')->willThrowException($invalidUserException);
 
         $authenticator
+            ->expects($this->once())
             ->method('onAuthenticationFailure')
             ->with($this->equalTo($this->request), $this->callback(fn ($e) => $e instanceof BadCredentialsException && $invalidUserException === $e->getPrevious()))
             ->willReturn($this->response);
@@ -391,7 +396,7 @@ class AuthenticatorManagerTest extends TestCase
 
     public function testLogsUseTheDecoratedAuthenticatorWhenItIsTraceable()
     {
-        $authenticator = $this->createStub(TestInteractiveAuthenticator::class);
+        $authenticator = $this->createMock(TestInteractiveAuthenticator::class);
         $authenticator->method('isInteractive')->willReturn(true);
         $this->request->attributes->set('_security_authenticators', [new TraceableAuthenticator($authenticator)]);
 
@@ -399,11 +404,7 @@ class AuthenticatorManagerTest extends TestCase
         $authenticator->method('createToken')->willReturn($this->token);
 
         $authenticator
-            ->method('onAuthenticationSuccess')
-            ->with($this->anything(), $this->token, 'main')
-            ->willReturn($this->response);
-
-        $authenticator
+            ->expects($this->once())
             ->method('onAuthenticationSuccess')
             ->with($this->anything(), $this->token, 'main')
             ->willReturn($this->response);

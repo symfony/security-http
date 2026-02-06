@@ -303,7 +303,7 @@ class AuthenticatorManagerBCTest extends TestCase
     #[Group('legacy')]
     public function testInteractiveAuthenticator()
     {
-        $authenticator = $this->createStub(TestInteractiveBCAuthenticator::class);
+        $authenticator = $this->createMock(TestInteractiveBCAuthenticator::class);
         $authenticator->method('isInteractive')->willReturn(true);
         $this->request->attributes->set('_security_authenticators', [$authenticator]);
 
@@ -311,6 +311,7 @@ class AuthenticatorManagerBCTest extends TestCase
         $authenticator->method('createToken')->willReturn($this->token);
 
         $authenticator
+            ->expects($this->once())
             ->method('onAuthenticationSuccess')
             ->with($this->anything(), $this->token, 'main')
             ->willReturn($this->response);
@@ -325,7 +326,7 @@ class AuthenticatorManagerBCTest extends TestCase
     #[Group('legacy')]
     public function testLegacyInteractiveAuthenticator()
     {
-        $authenticator = $this->createStub(InteractiveAuthenticatorInterface::class);
+        $authenticator = $this->createMock(InteractiveAuthenticatorInterface::class);
         $authenticator->method('isInteractive')->willReturn(true);
         $this->request->attributes->set('_security_authenticators', [$authenticator]);
 
@@ -333,6 +334,7 @@ class AuthenticatorManagerBCTest extends TestCase
         $authenticator->method('createToken')->willReturn($this->token);
 
         $authenticator
+            ->expects($this->once())
             ->method('onAuthenticationSuccess')
             ->with($this->anything(), $this->token, 'main')
             ->willReturn($this->response);
@@ -348,12 +350,13 @@ class AuthenticatorManagerBCTest extends TestCase
     public function testAuthenticateRequestHidesInvalidUserExceptions()
     {
         $invalidUserException = new UserNotFoundException();
-        $authenticator = $this->createStub(TestInteractiveBCAuthenticator::class);
+        $authenticator = $this->createMock(TestInteractiveBCAuthenticator::class);
         $this->request->attributes->set('_security_authenticators', [$authenticator]);
 
         $authenticator->method('authenticate')->willThrowException($invalidUserException);
 
         $authenticator
+            ->expects($this->once())
             ->method('onAuthenticationFailure')
             ->with($this->equalTo($this->request), $this->callback(fn ($e) => $e instanceof BadCredentialsException && $invalidUserException === $e->getPrevious()))
             ->willReturn($this->response);
@@ -368,12 +371,13 @@ class AuthenticatorManagerBCTest extends TestCase
     public function testAuthenticateRequestShowsAccountStatusException()
     {
         $invalidUserException = new LockedException();
-        $authenticator = $this->createStub(TestInteractiveBCAuthenticator::class);
+        $authenticator = $this->createMock(TestInteractiveBCAuthenticator::class);
         $this->request->attributes->set('_security_authenticators', [$authenticator]);
 
         $authenticator->method('authenticate')->willThrowException($invalidUserException);
 
         $authenticator
+            ->expects($this->once())
             ->method('onAuthenticationFailure')
             ->with($this->equalTo($this->request), $this->callback(fn ($e) => $e === $invalidUserException))
             ->willReturn($this->response);
@@ -388,12 +392,13 @@ class AuthenticatorManagerBCTest extends TestCase
     public function testAuthenticateRequestHidesInvalidAccountStatusException()
     {
         $invalidUserException = new LockedException();
-        $authenticator = $this->createStub(TestInteractiveBCAuthenticator::class);
+        $authenticator = $this->createMock(TestInteractiveBCAuthenticator::class);
         $this->request->attributes->set('_security_authenticators', [$authenticator]);
 
         $authenticator->method('authenticate')->willThrowException($invalidUserException);
 
         $authenticator
+            ->expects($this->once())
             ->method('onAuthenticationFailure')
             ->with($this->equalTo($this->request), $this->callback(fn ($e) => $e instanceof BadCredentialsException && $invalidUserException === $e->getPrevious()))
             ->willReturn($this->response);
@@ -407,7 +412,7 @@ class AuthenticatorManagerBCTest extends TestCase
     #[Group('legacy')]
     public function testLogsUseTheDecoratedAuthenticatorWhenItIsTraceable()
     {
-        $authenticator = $this->createStub(TestInteractiveBCAuthenticator::class);
+        $authenticator = $this->createMock(TestInteractiveBCAuthenticator::class);
         $authenticator->method('isInteractive')->willReturn(true);
         $this->request->attributes->set('_security_authenticators', [new TraceableAuthenticator($authenticator)]);
 
@@ -415,6 +420,7 @@ class AuthenticatorManagerBCTest extends TestCase
         $authenticator->method('createToken')->willReturn($this->token);
 
         $authenticator
+            ->expects($this->once())
             ->method('onAuthenticationSuccess')
             ->with($this->anything(), $this->token, 'main')
             ->willReturn($this->response);

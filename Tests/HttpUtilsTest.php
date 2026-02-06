@@ -140,9 +140,10 @@ class HttpUtilsTest extends TestCase
 
     public function testCreateRedirectResponseWithRouteName()
     {
-        $utils = new HttpUtils($urlGenerator = $this->createStub(UrlGeneratorInterface::class));
+        $utils = new HttpUtils($urlGenerator = $this->createMock(UrlGeneratorInterface::class));
 
         $urlGenerator
+            ->expects($this->once())
             ->method('generate')
             ->with('foobar', [], UrlGeneratorInterface::ABSOLUTE_URL)
             ->willReturn('http://localhost/foo/bar')
@@ -273,8 +274,9 @@ class HttpUtilsTest extends TestCase
 
     public function testCheckRequestPathWithUrlMatcherAndResourceNotFound()
     {
-        $urlMatcher = $this->createStub(UrlMatcherInterface::class);
+        $urlMatcher = $this->createMock(UrlMatcherInterface::class);
         $urlMatcher
+            ->expects($this->once())
             ->method('match')
             ->with('/')
             ->willThrowException(new ResourceNotFoundException())
@@ -287,8 +289,9 @@ class HttpUtilsTest extends TestCase
     public function testCheckRequestPathWithUrlMatcherAndMethodNotAllowed()
     {
         $request = $this->getRequest();
-        $urlMatcher = $this->createStub(RequestMatcherInterface::class);
+        $urlMatcher = $this->createMock(RequestMatcherInterface::class);
         $urlMatcher
+            ->expects($this->once())
             ->method('matchRequest')
             ->with($request)
             ->willThrowException(new MethodNotAllowedException([]))
@@ -300,8 +303,9 @@ class HttpUtilsTest extends TestCase
 
     public function testCheckRequestPathWithUrlMatcherAndResourceFoundByUrl()
     {
-        $urlMatcher = $this->createStub(UrlMatcherInterface::class);
+        $urlMatcher = $this->createMock(UrlMatcherInterface::class);
         $urlMatcher
+            ->expects($this->once())
             ->method('match')
             ->with('/foo/bar')
             ->willReturn(['_route' => 'foobar'])
@@ -314,8 +318,9 @@ class HttpUtilsTest extends TestCase
     public function testCheckRequestPathWithUrlMatcherAndResourceFoundByRequest()
     {
         $request = $this->getRequest();
-        $urlMatcher = $this->createStub(RequestMatcherInterface::class);
+        $urlMatcher = $this->createMock(RequestMatcherInterface::class);
         $urlMatcher
+            ->expects($this->once())
             ->method('matchRequest')
             ->with($request)
             ->willReturn(['_route' => 'foobar'])
