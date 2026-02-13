@@ -42,7 +42,7 @@ class PasswordMigratingListenerTest extends TestCase
         $this->user = new InMemoryUser('John', 'old-hash');
         $encoder = $this->createStub(PasswordHasherInterface::class);
         $encoder->method('needsRehash')->willReturn(true);
-        $encoder->method('hash')->with('pa$$word', null)->willReturn('new-hash');
+        $encoder->method('hash')->willReturn('new-hash');
         $this->hasherFactory = new PasswordHasherFactory([
             InMemoryUser::class => $encoder,
         ]);
