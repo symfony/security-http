@@ -94,10 +94,11 @@ class PersistentRememberMeHandlerTest extends TestCase
     public function testConsumeRememberMeCookieValid()
     {
         $tokenProvider = $this->createMock(TokenProviderInterface::class);
-        $tokenProvider->expects($this->any())
+        $tokenProvider
             ->method('loadTokenBySeries')
-            ->with('series1')
-            ->willReturn(new PersistentToken(InMemoryUser::class, 'wouter', 'series1', 'tokenvalue', $lastUsed = new \DateTimeImmutable('-10 min')))
+            ->willReturnMap([
+                ['series1', new PersistentToken(InMemoryUser::class, 'wouter', 'series1', 'tokenvalue', $lastUsed = new \DateTimeImmutable('-10 min'))],
+            ])
         ;
 
         $tokenProvider->expects($this->once())->method('updateToken')->with('series1');
@@ -173,10 +174,11 @@ class PersistentRememberMeHandlerTest extends TestCase
         $this->expectException(CookieTheftException::class);
 
         $tokenProvider = $this->createMock(TokenProviderInterface::class);
-        $tokenProvider->expects($this->any())
+        $tokenProvider
             ->method('loadTokenBySeries')
-            ->with('series1')
-            ->willReturn(new PersistentToken(InMemoryUser::class, 'wouter', 'series1', 'tokenvalue1', new \DateTimeImmutable('-10 min')));
+            ->willReturnMap([
+                ['series1', new PersistentToken(InMemoryUser::class, 'wouter', 'series1', 'tokenvalue1', new \DateTimeImmutable('-10 min'))],
+            ]);
 
         $tokenProvider->expects($this->never())->method('updateToken')->with('series1');
 
@@ -189,10 +191,11 @@ class PersistentRememberMeHandlerTest extends TestCase
         $this->expectExceptionMessage('The cookie has expired.');
 
         $tokenProvider = $this->createMock(TokenProviderInterface::class);
-        $tokenProvider->expects($this->any())
+        $tokenProvider
             ->method('loadTokenBySeries')
-            ->with('series1')
-            ->willReturn(new PersistentToken(InMemoryUser::class, 'wouter', 'series1', 'tokenvalue', new \DateTimeImmutable('@'.(time() - (31536000 + 1)))));
+            ->willReturnMap([
+                ['series1', new PersistentToken(InMemoryUser::class, 'wouter', 'series1', 'tokenvalue', new \DateTimeImmutable('@'.(time() - (31536000 + 1))))],
+            ]);
 
         $tokenProvider->expects($this->never())->method('updateToken')->with('series1');
 
@@ -202,10 +205,11 @@ class PersistentRememberMeHandlerTest extends TestCase
     public function testBase64EncodedTokens()
     {
         $tokenProvider = $this->createMock(TokenProviderInterface::class);
-        $tokenProvider->expects($this->any())
+        $tokenProvider
             ->method('loadTokenBySeries')
-            ->with('series1')
-            ->willReturn(new PersistentToken(InMemoryUser::class, 'wouter', 'series1', 'tokenvalue', new \DateTimeImmutable('-10 min')))
+            ->willReturnMap([
+                ['series1', new PersistentToken(InMemoryUser::class, 'wouter', 'series1', 'tokenvalue', new \DateTimeImmutable('-10 min'))],
+            ])
         ;
 
         $tokenProvider->expects($this->once())->method('updateToken')->with('series1');
