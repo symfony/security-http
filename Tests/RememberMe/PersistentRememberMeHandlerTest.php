@@ -270,10 +270,11 @@ class PersistentRememberMeHandlerTest extends TestCase
         }
 
         $tokenProvider = $this->createMock(TokenProviderInterface::class);
-        $tokenProvider->expects($this->any())
+        $tokenProvider
             ->method('loadTokenBySeries')
-            ->with('series1')
-            ->willReturn($persistentToken)
+            ->willReturnMap([
+                ['series1', $persistentToken],
+            ])
         ;
 
         $tokenProvider->expects($this->once())->method('updateToken')->with('series1');
