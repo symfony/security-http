@@ -427,8 +427,12 @@ class AuthenticatorManagerBCTest extends TestCase
 
         $authenticator
             ->method('onAuthenticationSuccess')
-            ->with($this->anything(), $this->token, 'main')
-            ->willReturn($this->response);
+            ->willReturnCallback(function (Request $request, TokenInterface $token, string $firewallName) {
+                $this->assertSame($this->token, $token);
+                $this->assertSame('main', $firewallName);
+
+                return $this->response;
+            });
 
         $logger = new class extends AbstractLogger {
             public array $logContexts = [];
