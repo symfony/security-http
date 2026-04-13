@@ -69,7 +69,7 @@ class AccessTokenAuthenticatorTest extends TestCase
             ->expects($this->once())
             ->method('getUserBadgeFrom')
             ->with('test')
-            ->willReturn(new UserBadge('john', fn () => new InMemoryUser('john', null)));
+            ->willReturn(new UserBadge('john', static fn () => new InMemoryUser('john', null)));
 
         $authenticator = new AccessTokenAuthenticator(
             $accessTokenHandler,
@@ -125,7 +125,7 @@ class AccessTokenAuthenticatorTest extends TestCase
             ->expects($this->once())
             ->method('getUserBadgeFrom')
             ->with('test')
-            ->willReturn(new UserBadge('john', fn () => new InMemoryUser('john', null)));
+            ->willReturn(new UserBadge('john', static fn () => new InMemoryUser('john', null)));
 
         $authenticator = new AccessTokenAuthenticator(
             $accessTokenHandler,
@@ -153,7 +153,7 @@ class AccessTokenAuthenticatorTest extends TestCase
             ->expects($this->once())
             ->method('getUserBadgeFrom')
             ->with('test')
-            ->willReturn(new UserBadge('test', new FallbackUserLoader(fn () => new InMemoryUser('john', null))));
+            ->willReturn(new UserBadge('test', new FallbackUserLoader(static fn () => new InMemoryUser('john', null))));
 
         $authenticator = new AccessTokenAuthenticator(
             $accessTokenHandler,

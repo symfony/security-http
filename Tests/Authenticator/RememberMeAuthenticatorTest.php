@@ -73,7 +73,7 @@ class RememberMeAuthenticatorTest extends TestCase
         $request = Request::create('/', 'GET', [], ['_remember_me_cookie' => $rememberMeDetails->toString()]);
         $passport = (new RememberMeAuthenticator($rememberMeHandler, 's3cr3t', $this->tokenStorage, '_remember_me_cookie'))->authenticate($request);
 
-        $rememberMeHandler->expects($this->once())->method('consumeRememberMeCookie')->with($this->callback(fn ($arg) => $rememberMeDetails == $arg));
+        $rememberMeHandler->expects($this->once())->method('consumeRememberMeCookie')->with($this->callback(static fn ($arg) => $rememberMeDetails == $arg));
         $passport->getUser(); // trigger the user loader
     }
 

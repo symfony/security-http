@@ -35,7 +35,7 @@ class LogoutListenerTest extends TestCase
         [$listener, , $httpUtils, $options] = $this->getListener(null, $this->createMock(HttpUtils::class), $dispatcher);
 
         $logoutEventDispatched = false;
-        $dispatcher->addListener(LogoutEvent::class, function () use (&$logoutEventDispatched) {
+        $dispatcher->addListener(LogoutEvent::class, static function () use (&$logoutEventDispatched) {
             $logoutEventDispatched = true;
         });
 
@@ -71,7 +71,7 @@ class LogoutListenerTest extends TestCase
             ->willReturn(true);
 
         $response = new Response();
-        $dispatcher->addListener(LogoutEvent::class, function (LogoutEvent $event) use ($response) {
+        $dispatcher->addListener(LogoutEvent::class, static function (LogoutEvent $event) use ($response) {
             $event->setResponse($response);
         });
 
@@ -103,7 +103,7 @@ class LogoutListenerTest extends TestCase
             ->willReturn(true);
 
         $response = new Response();
-        $dispatcher->addListener(LogoutEvent::class, function (LogoutEvent $event) use ($response) {
+        $dispatcher->addListener(LogoutEvent::class, static function (LogoutEvent $event) use ($response) {
             $event->setResponse($response);
         });
 

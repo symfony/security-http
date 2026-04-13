@@ -55,6 +55,6 @@ class UserProviderListenerTest extends TestCase
 
     public static function provideCompletePassports()
     {
-        yield [new SelfValidatingPassport(new UserBadge('wouter', function () {}))];
+        yield [new SelfValidatingPassport(new UserBadge('wouter', static function () {}))];
     }
 }

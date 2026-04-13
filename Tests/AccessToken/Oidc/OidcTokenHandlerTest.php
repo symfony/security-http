@@ -62,7 +62,7 @@ class OidcTokenHandlerTest extends TestCase
         ))->getUserBadgeFrom($token);
         $actualUser = $userBadge->getUserLoader()();
 
-        $this->assertEquals(new UserBadge($expected, new FallbackUserLoader(fn () => $expectedUser), $claims), $userBadge);
+        $this->assertEquals(new UserBadge($expected, new FallbackUserLoader(static fn () => $expectedUser), $claims), $userBadge);
         $this->assertInstanceOf(OidcUser::class, $actualUser);
         $this->assertEquals($expectedUser, $actualUser);
         $this->assertEquals($claims, $userBadge->getAttributes());

@@ -49,7 +49,7 @@ class PersistentRememberMeHandlerTest extends TestCase
         $tokenProvider = $this->createMock(TokenProviderInterface::class);
         $tokenProvider->expects($this->once())
             ->method('createNewToken')
-            ->with($this->callback(fn ($persistentToken) => $persistentToken instanceof PersistentToken
+            ->with($this->callback(static fn ($persistentToken) => $persistentToken instanceof PersistentToken
                 && 'wouter' === $persistentToken->getUserIdentifier()
                 && InMemoryUser::class === $persistentToken->getClass()));
 

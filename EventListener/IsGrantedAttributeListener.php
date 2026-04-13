@@ -103,12 +103,12 @@ class IsGrantedAttributeListener implements EventSubscriberInterface
 
     private function getIsGrantedString(IsGranted $isGranted): string
     {
-        $processValue = fn ($value) => \sprintf($value instanceof Expression ? 'new Expression("%s")' : '"%s"', $value);
+        $processValue = static fn ($value) => \sprintf($value instanceof Expression ? 'new Expression("%s")' : '"%s"', $value);
 
         $argsString = $processValue($isGranted->attribute);
 
         if (null !== $subject = $isGranted->subject) {
-            $subject = !\is_array($subject) ? $processValue($subject) : array_map(function ($key, $value) use ($processValue) {
+            $subject = !\is_array($subject) ? $processValue($subject) : array_map(static function ($key, $value) use ($processValue) {
                 $value = $processValue($value);
 
                 return \is_string($key) ? \sprintf('"%s" => %s', $key, $value) : $value;

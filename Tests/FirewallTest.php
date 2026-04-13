@@ -56,11 +56,11 @@ class FirewallTest extends TestCase
     {
         $called = [];
 
-        $first = function () use (&$called) {
+        $first = static function () use (&$called) {
             $called[] = 1;
         };
 
-        $second = function () use (&$called) {
+        $second = static function () use (&$called) {
             $called[] = 2;
         };
 

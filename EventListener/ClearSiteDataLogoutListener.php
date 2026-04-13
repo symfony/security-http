@@ -36,7 +36,7 @@ class ClearSiteDataLogoutListener implements EventSubscriberInterface
     public function onLogout(LogoutEvent $event): void
     {
         if (!$event->getResponse()?->headers->has(static::HEADER_NAME)) {
-            $event->getResponse()->headers->set(static::HEADER_NAME, implode(', ', array_map(fn ($v) => '"'.$v.'"', $this->cookieValue)));
+            $event->getResponse()->headers->set(static::HEADER_NAME, implode(', ', array_map(static fn ($v) => '"'.$v.'"', $this->cookieValue)));
         }
     }
 
