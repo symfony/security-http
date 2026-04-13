@@ -81,7 +81,7 @@ class AuthenticatorManager implements AuthenticatorManagerInterface, UserAuthent
         $attributes = 4 < \func_num_args() ? func_get_arg(4) : [];
 
         // create an authentication token for the User
-        $passport = new SelfValidatingPassport(new UserBadge($user->getUserIdentifier(), fn () => $user), $badges);
+        $passport = new SelfValidatingPassport(new UserBadge($user->getUserIdentifier(), static fn () => $user), $badges);
         foreach ($attributes as $k => $v) {
             $passport->setAttribute($k, $v);
         }

@@ -74,13 +74,13 @@ class OidcTokenGenerator
     {
         if ($alias) {
             if (!$this->algorithmManager->has($alias)) {
-                throw new \InvalidArgumentException(sprintf('"%s" is not a valid algorithm. Available algorithms: "%s".', $alias, implode('", "', $this->algorithmManager->list())));
+                throw new \InvalidArgumentException(\sprintf('"%s" is not a valid algorithm. Available algorithms: "%s".', $alias, implode('", "', $this->algorithmManager->list())));
             }
             return $this->algorithmManager->get($alias);
         }
 
-        if (1 !== count($list = $this->algorithmManager->list())) {
-            throw new \InvalidArgumentException(sprintf('Please choose an algorithm. Available algorithms: "%s".', implode('", "', $list)));
+        if (1 !== \count($list = $this->algorithmManager->list())) {
+            throw new \InvalidArgumentException(\sprintf('Please choose an algorithm. Available algorithms: "%s".', implode('", "', $list)));
         }
 
         return $this->algorithmManager->get($list[0]);
@@ -89,15 +89,15 @@ class OidcTokenGenerator
     private function getIssuer(?string $issuer): string
     {
         if ($issuer) {
-            if (!in_array($issuer, $this->issuers, true)) {
-                throw new \InvalidArgumentException(sprintf('"%s" is not a valid issuer. Available issuers: "%s".', $issuer, implode('", "', $this->issuers)));
+            if (!\in_array($issuer, $this->issuers, true)) {
+                throw new \InvalidArgumentException(\sprintf('"%s" is not a valid issuer. Available issuers: "%s".', $issuer, implode('", "', $this->issuers)));
             }
 
             return $issuer;
         }
 
-        if (1 !== count($this->issuers)) {
-            throw new \InvalidArgumentException(sprintf('Please choose an issuer. Available issuers: "%s".', implode('", "', $this->issuers)));
+        if (1 !== \count($this->issuers)) {
+            throw new \InvalidArgumentException(\sprintf('Please choose an issuer. Available issuers: "%s".', implode('", "', $this->issuers)));
         }
 
         return $this->issuers[0];
