@@ -144,7 +144,7 @@ class SwitchUserListenerTest extends TestCase
             ->expects($this->once())
             ->method('dispatch')
             ->with(
-                $this->callback(fn (SwitchUserEvent $event) => $event->getTargetUser() === $refreshedUser),
+                $this->callback(static fn (SwitchUserEvent $event) => $event->getTargetUser() === $refreshedUser),
                 SecurityEvents::SWITCH_USER
             )
         ;
@@ -203,12 +203,12 @@ class SwitchUserListenerTest extends TestCase
 
         $accessDecisionManager = $this->createMock(AccessDecisionManagerInterface::class);
         $accessDecisionManager->expects($this->once())
-            ->method('decide')->with($token, ['ROLE_ALLOWED_TO_SWITCH'], $this->callback(fn ($user) => 'kuba' === $user->getUserIdentifier()))
+            ->method('decide')->with($token, ['ROLE_ALLOWED_TO_SWITCH'], $this->callback(static fn ($user) => 'kuba' === $user->getUserIdentifier()))
             ->willReturn(true);
 
         $userChecker = $this->createMock(UserCheckerInterface::class);
         $userChecker->expects($this->once())
-            ->method('checkPostAuth')->with($this->callback(fn ($user) => 'kuba' === $user->getUserIdentifier()));
+            ->method('checkPostAuth')->with($this->callback(static fn ($user) => 'kuba' === $user->getUserIdentifier()));
 
         $listener = new SwitchUserListener($this->tokenStorage, $this->userProvider, $userChecker, 'provider123', $accessDecisionManager);
         $this->assertTrue($listener->supports($this->event->getRequest()));
@@ -229,10 +229,10 @@ class SwitchUserListenerTest extends TestCase
 
         $this->request->query->set('_switch_user', 'kuba');
 
-        $targetsUser = $this->callback(fn ($user) => 'kuba' === $user->getUserIdentifier());
+        $targetsUser = $this->callback(static fn ($user) => 'kuba' === $user->getUserIdentifier());
         $accessDecisionManager = $this->createMock(AccessDecisionManagerInterface::class);
         $accessDecisionManager->expects($this->once())
-            ->method('decide')->with(self::callback(function (TokenInterface $token) use ($originalToken, $tokenStorage) {
+            ->method('decide')->with(self::callback(static function (TokenInterface $token) use ($originalToken, $tokenStorage) {
                 // the token storage should also contain the original token for voters depending on it
                 return $token === $originalToken && $tokenStorage->getToken() === $originalToken;
             }), ['ROLE_ALLOWED_TO_SWITCH'], $targetsUser)
@@ -269,7 +269,7 @@ class SwitchUserListenerTest extends TestCase
 
         $userChecker = $this->createMock(UserCheckerInterface::class);
         $userChecker->expects($this->once())
-            ->method('checkPostAuth')->with($this->callback(fn ($argUser) => $user->isEqualTo($argUser)));
+            ->method('checkPostAuth')->with($this->callback(static fn ($argUser) => $user->isEqualTo($argUser)));
 
         $listener = new SwitchUserListener($this->tokenStorage, $this->userProvider, $userChecker, 'provider123', $accessDecisionManager);
         $this->assertTrue($listener->supports($this->event->getRequest()));
@@ -291,7 +291,7 @@ class SwitchUserListenerTest extends TestCase
             'section' => 2,
         ]);
 
-        $targetsUser = $this->callback(fn ($user) => 'kuba' === $user->getUserIdentifier());
+        $targetsUser = $this->callback(static fn ($user) => 'kuba' === $user->getUserIdentifier());
         $accessDecisionManager = $this->createMock(AccessDecisionManagerInterface::class);
         $accessDecisionManager->expects($this->once())
             ->method('decide')->with($token, ['ROLE_ALLOWED_TO_SWITCH'], $targetsUser)
@@ -322,7 +322,7 @@ class SwitchUserListenerTest extends TestCase
 
         $accessDecisionManager = $this->createMock(AccessDecisionManagerInterface::class);
         $accessDecisionManager->expects($this->once())
-            ->method('decide')->with($token, ['ROLE_ALLOWED_TO_SWITCH'], $this->callback(fn ($user) => 'kuba' === $user->getUserIdentifier()))
+            ->method('decide')->with($token, ['ROLE_ALLOWED_TO_SWITCH'], $this->callback(static fn ($user) => 'kuba' === $user->getUserIdentifier()))
             ->willReturn(true);
 
         $dispatcher = $this->createMock(EventDispatcherInterface::class);
@@ -330,7 +330,7 @@ class SwitchUserListenerTest extends TestCase
             ->expects($this->once())
             ->method('dispatch')
             ->with(
-                $this->callback(function (SwitchUserEvent $event) use ($replacedToken) {
+                $this->callback(static function (SwitchUserEvent $event) use ($replacedToken) {
                     if ('kuba' !== $event->getTargetUser()->getUserIdentifier()) {
                         return false;
                     }
@@ -367,7 +367,7 @@ class SwitchUserListenerTest extends TestCase
         $this->tokenStorage->setToken($token);
         $this->request->query->set('_switch_user', 'kuba');
 
-        $targetsUser = $this->callback(fn ($user) => 'kuba' === $user->getUserIdentifier());
+        $targetsUser = $this->callback(static fn ($user) => 'kuba' === $user->getUserIdentifier());
         $accessDecisionManager = $this->createMock(AccessDecisionManagerInterface::class);
         $accessDecisionManager->expects($this->once())
             ->method('decide')->with($token, ['ROLE_ALLOWED_TO_SWITCH'], $targetsUser)
@@ -404,7 +404,7 @@ class SwitchUserListenerTest extends TestCase
             ->expects($this->once())
             ->method('dispatch')
             ->with(
-                $this->callback(fn (SwitchUserEvent $event) => $event->getToken()->getUser() === $refreshedOriginalUser),
+                $this->callback(static fn (SwitchUserEvent $event) => $event->getToken()->getUser() === $refreshedOriginalUser),
                 SecurityEvents::SWITCH_USER
             )
         ;

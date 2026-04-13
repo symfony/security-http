@@ -243,7 +243,7 @@ class OidcTokenHandlerTest extends TestCase
     {
         $time = time();
 
-        $httpClient1 = new MockHttpClient(function ($method, $url) {
+        $httpClient1 = new MockHttpClient(static function ($method, $url) {
             if (str_contains($url, 'openid-configuration')) {
                 return new JsonMockResponse(['jwks_uri' => 'https://provider1.example.com/.well-known/jwks.json']);
             }
@@ -251,7 +251,7 @@ class OidcTokenHandlerTest extends TestCase
             return new JsonMockResponse(['keys' => [array_merge(self::getJWK()->all(), ['use' => 'sig'])]]);
         });
 
-        $httpClient2 = new MockHttpClient(function ($method, $url) {
+        $httpClient2 = new MockHttpClient(static function ($method, $url) {
             if (str_contains($url, 'openid-configuration')) {
                 return new JsonMockResponse(['jwks_uri' => 'https://provider2.example.com/.well-known/jwks.json']);
             }
@@ -327,7 +327,7 @@ class OidcTokenHandlerTest extends TestCase
         $token = self::buildJWS(json_encode($claims));
 
         $requestCount = 0;
-        $httpClient = new MockHttpClient(function ($method, $url) use (&$requestCount) {
+        $httpClient = new MockHttpClient(static function ($method, $url) use (&$requestCount) {
             ++$requestCount;
             if (str_contains($url, 'openid-configuration')) {
                 return new JsonMockResponse(['jwks_uri' => 'https://www.example.com/jwks.json']);
@@ -368,7 +368,7 @@ class OidcTokenHandlerTest extends TestCase
         $token = self::buildJWS(json_encode($claims));
 
         $requestCount = 0;
-        $httpClient = new MockHttpClient(function ($method, $url) use (&$requestCount) {
+        $httpClient = new MockHttpClient(static function ($method, $url) use (&$requestCount) {
             ++$requestCount;
             if (str_contains($url, 'openid-configuration')) {
                 return new JsonMockResponse(['jwks_uri' => 'https://www.example.com/jwks.json']);

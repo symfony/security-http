@@ -61,7 +61,7 @@ class LogoutListenerTest extends TestCase
             ->willReturn(true);
 
         $response = new Response();
-        $this->eventDispatcher->addListener(LogoutEvent::class, function (LogoutEvent $event) use ($response) {
+        $this->eventDispatcher->addListener(LogoutEvent::class, static function (LogoutEvent $event) use ($response) {
             $event->setResponse($response);
         });
 
@@ -82,13 +82,13 @@ class LogoutListenerTest extends TestCase
 
         $this->csrfTokenManager->expects($this->once())
             ->method('isTokenValid')
-            ->with($this->callback(function ($token) {
+            ->with($this->callback(static function ($token) {
                 return $token instanceof CsrfToken && 'token2' === $token->getValue();
             }))
             ->willReturn(true);
 
         $response = new Response();
-        $this->eventDispatcher->addListener(LogoutEvent::class, function (LogoutEvent $event) use ($response) {
+        $this->eventDispatcher->addListener(LogoutEvent::class, static function (LogoutEvent $event) use ($response) {
             $event->setResponse($response);
         });
 
@@ -113,7 +113,7 @@ class LogoutListenerTest extends TestCase
         $request = Request::create('/logout');
 
         $response = new Response();
-        $this->eventDispatcher->addListener(LogoutEvent::class, function (LogoutEvent $event) use ($response) {
+        $this->eventDispatcher->addListener(LogoutEvent::class, static function (LogoutEvent $event) use ($response) {
             $event->setResponse($response);
         });
 

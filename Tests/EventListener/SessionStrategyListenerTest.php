@@ -73,7 +73,7 @@ class SessionStrategyListenerTest extends TestCase
         $token = new UsernamePasswordToken(new InMemoryUser('test', 'password'), 'main');
         $previousToken = new UsernamePasswordToken(new InMemoryUser('test', 'password'), 'main');
 
-        $event = new LoginSuccessEvent(new DummyAuthenticator(), new SelfValidatingPassport(new UserBadge('test', function () {})), $token, $this->request, null, 'main_firewall', $previousToken);
+        $event = new LoginSuccessEvent(new DummyAuthenticator(), new SelfValidatingPassport(new UserBadge('test', static function () {})), $token, $this->request, null, 'main_firewall', $previousToken);
 
         $this->listener->onSuccessfulLogin($event);
     }
@@ -87,14 +87,14 @@ class SessionStrategyListenerTest extends TestCase
 
         $this->sessionAuthenticationStrategy->expects($this->once())->method('onAuthentication')->with($this->request, $token);
 
-        $event = new LoginSuccessEvent(new DummyAuthenticator(), new SelfValidatingPassport(new UserBadge('test', function () {})), $token, $this->request, null, 'main_firewall', $previousToken);
+        $event = new LoginSuccessEvent(new DummyAuthenticator(), new SelfValidatingPassport(new UserBadge('test', static function () {})), $token, $this->request, null, 'main_firewall', $previousToken);
 
         $this->listener->onSuccessfulLogin($event);
     }
 
     private function createEvent($firewallName)
     {
-        return new LoginSuccessEvent(new DummyAuthenticator(), new SelfValidatingPassport(new UserBadge('test', fn ($username) => new InMemoryUser($username, null))), $this->token, $this->request, null, $firewallName);
+        return new LoginSuccessEvent(new DummyAuthenticator(), new SelfValidatingPassport(new UserBadge('test', static fn ($username) => new InMemoryUser($username, null))), $this->token, $this->request, null, $firewallName);
     }
 
     private function configurePreviousSession()

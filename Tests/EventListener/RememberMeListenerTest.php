@@ -80,6 +80,6 @@ class RememberMeListenerTest extends TestCase
             $badges = [$badge];
         }
 
-        return new SelfValidatingPassport(new UserBadge('test', fn ($username) => new InMemoryUser($username, null)), $badges);
+        return new SelfValidatingPassport(new UserBadge('test', static fn ($username) => new InMemoryUser($username, null)), $badges);
     }
 }
