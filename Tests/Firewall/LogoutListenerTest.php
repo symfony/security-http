@@ -82,9 +82,7 @@ class LogoutListenerTest extends TestCase
 
         $this->csrfTokenManager->expects($this->once())
             ->method('isTokenValid')
-            ->with($this->callback(static function ($token) {
-                return $token instanceof CsrfToken && 'token2' === $token->getValue();
-            }))
+            ->with($this->callback(static fn ($token) => $token instanceof CsrfToken && 'token2' === $token->getValue()))
             ->willReturn(true);
 
         $response = new Response();
