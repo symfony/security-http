@@ -62,7 +62,7 @@ class Firewall implements EventSubscriberInterface
         }
 
         // Authentication listeners are pre-sorted by SortFirewallListenersPass
-        $authenticationListeners = function () use ($authenticationListeners, $logoutListener) {
+        $authenticationListeners = static function () use ($authenticationListeners, $logoutListener) {
             if (null !== $logoutListener) {
                 $logoutListenerPriority = $logoutListener::getPriority();
             }
