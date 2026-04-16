@@ -85,7 +85,7 @@ final class OidcTokenHandler implements AccessTokenHandlerInterface
             ];
             $claimCheckerManager = new ClaimCheckerManager($checkers);
             // if this check fails, an InvalidClaimException is thrown
-            $claimCheckerManager->check($claims);
+            $claimCheckerManager->check($claims, ['iat', 'exp', 'aud', 'iss']);
 
             if (empty($claims[$this->claim])) {
                 throw new MissingClaimException(\sprintf('"%s" claim not found.', $this->claim));

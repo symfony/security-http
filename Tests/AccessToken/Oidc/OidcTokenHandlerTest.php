@@ -98,10 +98,8 @@ class OidcTokenHandlerTest extends TestCase
 
     public static function getInvalidTokens(): iterable
     {
-        // Invalid token
-        yield ['invalid'];
-        // Token is expired
-        yield [
+        yield 'Invalid token' => ['invalid'];
+        yield 'Token is expired' => [
             self::buildJWS(json_encode([
                 'iat' => time() - 3600,
                 'nbf' => time() - 3600,
@@ -112,8 +110,7 @@ class OidcTokenHandlerTest extends TestCase
                 'email' => 'foo@example.com',
             ])),
         ];
-        // Invalid audience
-        yield [
+        yield 'Invalid audience' => [
             self::buildJWS(json_encode([
                 'iat' => time(),
                 'nbf' => time(),
@@ -122,6 +119,42 @@ class OidcTokenHandlerTest extends TestCase
                 'aud' => 'invalid',
                 'sub' => 'e21bf182-1538-406e-8ccb-e25a17aba39f',
                 'email' => 'foo@example.com',
+            ])),
+        ];
+        yield 'Missing "aud" claim' => [
+            self::buildJWS(json_encode([
+                'iat' => time(),
+                'nbf' => time(),
+                'exp' => time() + 3600,
+                'iss' => 'https://www.example.com',
+                'sub' => 'e21bf182-1538-406e-8ccb-e25a17aba39f',
+            ])),
+        ];
+        yield 'Missing "iss" claim' => [
+            self::buildJWS(json_encode([
+                'iat' => time(),
+                'nbf' => time(),
+                'exp' => time() + 3600,
+                'aud' => self::AUDIENCE,
+                'sub' => 'e21bf182-1538-406e-8ccb-e25a17aba39f',
+            ])),
+        ];
+        yield 'Missing "exp" claim' => [
+            self::buildJWS(json_encode([
+                'iat' => time(),
+                'nbf' => time(),
+                'iss' => 'https://www.example.com',
+                'aud' => self::AUDIENCE,
+                'sub' => 'e21bf182-1538-406e-8ccb-e25a17aba39f',
+            ])),
+        ];
+        yield 'Missing "iat" claim' => [
+            self::buildJWS(json_encode([
+                'nbf' => time(),
+                'exp' => time() + 3600,
+                'iss' => 'https://www.example.com',
+                'aud' => self::AUDIENCE,
+                'sub' => 'e21bf182-1538-406e-8ccb-e25a17aba39f',
             ])),
         ];
     }
