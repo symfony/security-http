@@ -236,7 +236,7 @@ class HttpUtilsTest extends TestCase
 
         $this->assertSame(
             'http://localhost/foo/',
-            (new HttpUtils())->createRequest(Request::create('/', server: ['HTTP_X_FORWARDED_PREFIX' => '/foo']), '/')->getUri(),
+            (new HttpUtils())->createRequest(Request::create('/', 'GET', [], [], [], ['HTTP_X_FORWARDED_PREFIX' => '/foo']), '/')->getUri(),
         );
     }
 
@@ -244,7 +244,7 @@ class HttpUtilsTest extends TestCase
     {
         Request::setTrustedProxies(['127.0.0.1'], Request::HEADER_X_FORWARDED_PREFIX);
 
-        $request = Request::create('/', server: ['HTTP_X_FORWARDED_PREFIX' => '/foo']);
+        $request = Request::create('/', 'GET', [], [], [], ['HTTP_X_FORWARDED_PREFIX' => '/foo']);
 
         $urlGenerator = new UrlGenerator(
             $routeCollection = new RouteCollection(),
