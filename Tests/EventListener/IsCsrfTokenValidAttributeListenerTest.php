@@ -173,6 +173,26 @@ class IsCsrfTokenValidAttributeListenerTest extends TestCase
         $listener->onKernelControllerAttribute(new ControllerAttributeEvent($attribute, $event));
     }
 
+    public function testNonStringIdThrows()
+    {
+        $event = new ControllerArgumentsEvent(
+            $this->createStub(HttpKernelInterface::class),
+            [new IsCsrfTokenValidAttributeMethodsController(), 'withCustomExpressionId'],
+            ['123'],
+            new Request(request: ['_token' => 'bar']),
+            null
+        );
+
+        $attribute = new IsCsrfTokenValid(static fn () => 42);
+
+        $listener = new IsCsrfTokenValidAttributeListener($this->createStub(CsrfTokenManagerInterface::class));
+
+        $this->expectException(\TypeError::class);
+        $this->expectExceptionMessage('must evaluate to a string, "int" given');
+
+        $listener->onKernelControllerAttribute(new ControllerAttributeEvent($attribute, $event));
+    }
+
     public function testIsCsrfTokenValidCalledCorrectlyWithCustomTokenKey()
     {
         $request = new Request([], ['my_token_key' => 'bar']);
