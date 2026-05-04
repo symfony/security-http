@@ -20,8 +20,11 @@ use Symfony\Component\Security\Http\SecurityRequestAttributes;
 /**
  * A default login throttling limiter.
  *
- * This limiter prevents breadth-first attacks by enforcing
- * a limit on username+IP and a (higher) limit on IP.
+ * This limiter prevents breadth-first and distributed brute-force attacks by
+ * enforcing three limits in sequence:
+ *   1. IP only (global): blocks wide scans from a single IP;
+ *   2. username + IP (local): blocks targeted attacks from a single IP;
+ *   3. username only: blocks distributed botnet attacks across many IPs.
  *
  * @author Wouter de Jong <wouter@wouterj.nl>
  */
@@ -34,6 +37,7 @@ final class DefaultLoginRateLimiter extends AbstractRequestRateLimiter
         private RateLimiterFactory $globalFactory,
         private RateLimiterFactory $localFactory,
         #[\SensitiveParameter] private string $secret,
+        private ?RateLimiterFactory $usernameFactory = null,
     ) {
         if (!$secret) {
             throw new InvalidArgumentException('A non-empty secret is required.');
@@ -45,10 +49,16 @@ final class DefaultLoginRateLimiter extends AbstractRequestRateLimiter
         $username = $request->attributes->get(SecurityRequestAttributes::LAST_USERNAME, '');
         $username = preg_match('//u', $username) ? mb_strtolower($username, 'UTF-8') : strtolower($username);
 
-        return [
+        $limiters = [
             $this->globalFactory->create($this->hash($request->getClientIp())),
             $this->localFactory->create($this->hash($username.'-'.$request->getClientIp())),
         ];
+
+        if (null !== $this->usernameFactory) {
+            $limiters[] = $this->usernameFactory->create($this->hash($username));
+        }
+
+        return $limiters;
     }
 
     private function hash(string $data): string
