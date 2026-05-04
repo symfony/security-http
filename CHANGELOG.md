@@ -8,7 +8,6 @@ CHANGELOG
  * Add `this` to `#[IsGranted]` subject expression variables when available
  * Add support for closures and `this` in `#[IsCsrfTokenValid]` when evaluating its `id`
  * Deprecate the `$eraseCredentials` argument of `AuthenticatorManager::__construct()`, as the `eraseCredentials()` method was removed in Symfony 8.0
- * Add a per-username rate limit to `DefaultLoginRateLimiter` to prevent brute-force attacks from multiple IPs targeting a single account
 
 8.0
 ---

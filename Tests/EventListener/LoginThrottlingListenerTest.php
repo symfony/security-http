@@ -35,25 +35,19 @@ class LoginThrottlingListenerTest extends TestCase
     {
         $this->requestStack = new RequestStack();
 
-        $globalLimiter = new RateLimiterFactory([
-            'id' => 'login',
-            'policy' => 'fixed_window',
-            'limit' => 6,
-            'interval' => '1 minute',
-        ], new InMemoryStorage());
         $localLimiter = new RateLimiterFactory([
             'id' => 'login',
             'policy' => 'fixed_window',
             'limit' => 3,
             'interval' => '1 minute',
         ], new InMemoryStorage());
-        $usernameLimiter = new RateLimiterFactory([
+        $globalLimiter = new RateLimiterFactory([
             'id' => 'login',
             'policy' => 'fixed_window',
-            'limit' => 3,
+            'limit' => 6,
             'interval' => '1 minute',
         ], new InMemoryStorage());
-        $limiter = new DefaultLoginRateLimiter($globalLimiter, $localLimiter, '$3cre7', $usernameLimiter);
+        $limiter = new DefaultLoginRateLimiter($globalLimiter, $localLimiter, '$3cre7');
 
         $this->listener = new LoginThrottlingListener($this->requestStack, $limiter);
     }
@@ -88,25 +82,6 @@ class LoginThrottlingListenerTest extends TestCase
 
         $this->expectException(TooManyLoginAttemptsAuthenticationException::class);
         $this->listener->checkPassport($this->createCheckPassportEvent($passports[0]));
-    }
-
-    public function testPreventsLoginWhenOverUsernameThreshold()
-    {
-        $passport = $this->createPassport('wouter');
-        // Simulate requests from different IPs
-        for ($i = 0; $i < 3; ++$i) {
-            $request = $this->createRequest('10.0.0.'.$i);
-            $this->requestStack->push($request);
-            $this->listener->checkPassport($this->createCheckPassportEvent($passport));
-            $this->listener->onFailedLogin($this->createLoginFailedEvent($passport));
-            $this->requestStack->pop();
-        }
-
-        // A new IP should still be blocked because the username limit is reached
-        $request = $this->createRequest('10.0.1.0');
-        $this->requestStack->push($request);
-        $this->expectException(TooManyLoginAttemptsAuthenticationException::class);
-        $this->listener->checkPassport($this->createCheckPassportEvent($passport));
     }
 
     public function testPreventsLoginWhenOverGlobalThreshold()
