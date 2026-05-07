@@ -212,11 +212,9 @@ class ContextListener extends AbstractListener
 
             try {
                 $refreshedUser = $provider->refreshUser($user);
-                $newToken = clone $token;
-                $newToken->setUser($refreshedUser, false);
 
                 // tokens can be deauthenticated if the user has been changed.
-                if ($token instanceof AbstractToken && $this->hasUserChanged($user, $newToken)) {
+                if ($token instanceof AbstractToken && self::hasUserChanged($token, $user, $refreshedUser)) {
                     $userDeauthenticated = true;
 
                     $this->logger?->debug('Cannot refresh token because user has changed.', ['username' => $refreshedUser->getUserIdentifier(), 'provider' => $provider::class]);
@@ -285,10 +283,8 @@ class ContextListener extends AbstractListener
         return $token;
     }
 
-    private static function hasUserChanged(UserInterface $originalUser, TokenInterface $refreshedToken): bool
+    private static function hasUserChanged(AbstractToken $token, UserInterface $originalUser, UserInterface $refreshedUser): bool
     {
-        $refreshedUser = $refreshedToken->getUser();
-
         if ($originalUser instanceof EquatableInterface) {
             return !$originalUser->isEqualTo($refreshedUser);
         }
@@ -309,13 +305,15 @@ class ContextListener extends AbstractListener
 
         $userRoles = array_map('strval', (array) $refreshedUser->getRoles());
 
-        if ($refreshedToken instanceof SwitchUserToken) {
+        if ($token instanceof SwitchUserToken) {
             $userRoles[] = 'ROLE_PREVIOUS_ADMIN';
         }
 
+        $tokenRoleNames = $token->getRoleNames();
+
         if (
-            \count($userRoles) !== \count($refreshedToken->getRoleNames())
-            || \count($userRoles) !== \count(array_intersect($userRoles, $refreshedToken->getRoleNames()))
+            \count($userRoles) !== \count($tokenRoleNames)
+            || \count($userRoles) !== \count(array_intersect($userRoles, $tokenRoleNames))
         ) {
             return true;
         }
