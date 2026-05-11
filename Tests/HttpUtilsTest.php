@@ -262,6 +262,66 @@ class HttpUtilsTest extends TestCase
         );
     }
 
+    public function testCreateRequestFromRoutePreservesScriptNameBaseUrl()
+    {
+        // Sub-directory install (Apache "Alias /myapp /var/www/myapp/public" + mod_rewrite).
+        // The master request's base URL comes from SCRIPT_NAME, NOT from X-Forwarded-Prefix.
+        // The sub-request created for a `form_login.use_forward` login MUST inherit that base
+        // URL so the URL generator (re-initialized from the sub-request via
+        // RouterListener::onKernelRequest) emits form action URLs prefixed with `/myapp`.
+        $server = [
+            'REQUEST_URI' => '/myapp/',
+            'SCRIPT_NAME' => '/myapp/index.php',
+            'PHP_SELF' => '/myapp/index.php',
+            'SCRIPT_FILENAME' => '/var/www/myapp/public/index.php',
+        ];
+        $request = new Request([], [], [], [], [], $server);
+        $this->assertSame('/myapp', $request->getBaseUrl());
+
+        $urlGenerator = new UrlGenerator(
+            $routeCollection = new RouteCollection(),
+            (new RequestContext())->fromRequest($request),
+        );
+        $routeCollection->add('app_login', new Route('/login'));
+
+        $subRequest = (new HttpUtils($urlGenerator))->createRequest($request, 'app_login');
+
+        $this->assertSame('/myapp', $subRequest->getBaseUrl());
+        $this->assertSame('http://localhost/myapp/login', $subRequest->getUri());
+    }
+
+    public function testCreateRequestFromRouteBehindProxyPreservesScriptNameBaseUrl()
+    {
+        // Sub-directory install (Apache "Alias /myapp …") behind a trusted proxy adding
+        // an extra prefix: getBaseUrl() === "/proxy-prefix" + "/myapp". Only the
+        // "/proxy-prefix" part may be dropped from the generated sub-request URI; the
+        // "/myapp" part stays so the sub-request re-detects it from SCRIPT_NAME, and the
+        // proxy prefix is re-added (not doubled) once the sub-request is processed.
+        Request::setTrustedProxies(['127.0.0.1'], Request::HEADER_X_FORWARDED_PREFIX);
+
+        $server = [
+            'REQUEST_URI' => '/myapp/',
+            'SCRIPT_NAME' => '/myapp/index.php',
+            'PHP_SELF' => '/myapp/index.php',
+            'SCRIPT_FILENAME' => '/var/www/myapp/public/index.php',
+            'REMOTE_ADDR' => '127.0.0.1',
+            'HTTP_X_FORWARDED_PREFIX' => '/proxy-prefix',
+        ];
+        $request = new Request([], [], [], [], [], $server);
+        $this->assertSame('/proxy-prefix/myapp', $request->getBaseUrl());
+
+        $urlGenerator = new UrlGenerator(
+            $routeCollection = new RouteCollection(),
+            (new RequestContext())->fromRequest($request),
+        );
+        $routeCollection->add('app_login', new Route('/login'));
+
+        $subRequest = (new HttpUtils($urlGenerator))->createRequest($request, 'app_login');
+
+        $this->assertSame('/proxy-prefix/myapp', $subRequest->getBaseUrl());
+        $this->assertSame('http://localhost/proxy-prefix/myapp/login', $subRequest->getUri());
+    }
+
     public function testCheckRequestPath()
     {
         $utils = new HttpUtils($this->getUrlGenerator());
