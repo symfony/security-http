@@ -54,7 +54,7 @@ class IsGrantedAttributeListener implements EventSubscriberInterface
         $arguments = $event->getNamedArguments();
 
         foreach ($attributes as $attribute) {
-            if ($attribute->methods && !\in_array($request->getMethod(), array_map('strtoupper', $attribute->methods), true)) {
+            if ($attribute->methods && !\in_array($request->getMethod(), $attribute->methods, true)) {
                 continue;
             }
 
