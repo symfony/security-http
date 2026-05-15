@@ -398,6 +398,28 @@ class AuthenticatorManagerTest extends TestCase
         new AuthenticatorManager([], $this->tokenStorage, $this->eventDispatcher, 'main', null, false);
     }
 
+    #[Group('legacy')]
+    #[IgnoreDeprecations]
+    public function testEraseCredentialsConstructorArgDeprecationWithFullLegacyPositionalArgs()
+    {
+        $this->expectUserDeprecationMessage('Since symfony/security-http 8.1: Passing the "$eraseCredentials" argument to "Symfony\Component\Security\Http\Authentication\AuthenticatorManager::__construct()" is deprecated, as the "eraseCredentials()" method was removed in Symfony 8.0.');
+
+        $manager = new AuthenticatorManager(
+            [],
+            $this->tokenStorage,
+            $this->eventDispatcher,
+            'main',
+            null,
+            false,
+            ExposeSecurityLevel::All,
+            ['BadgeX'],
+        );
+
+        $reflection = new \ReflectionObject($manager);
+        $this->assertSame(ExposeSecurityLevel::All, $reflection->getProperty('exposeSecurityErrors')->getValue($manager));
+        $this->assertSame(['BadgeX'], $reflection->getProperty('requiredBadges')->getValue($manager));
+    }
+
     private static function createDummySupportsAuthenticator(?bool $supports = true)
     {
         return new DummySupportsAuthenticator($supports);

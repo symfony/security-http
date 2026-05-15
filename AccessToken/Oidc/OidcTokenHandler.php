@@ -75,6 +75,12 @@ final class OidcTokenHandler implements AccessTokenHandlerInterface
 
     /**
      * @param HttpClientInterface|HttpClientInterface[] $client
+     * @param bool                                      $enforceKeyUsageVerification When true (default, strict), only JWKs whose `use` is "sig" or whose
+     *                                                                               `key_ops` contains "sign"/"verify" are accepted for signature verification.
+     *                                                                               When false (lax), JWKs missing both `use` and `key_ops` are also accepted;
+     *                                                                               JWKs explicitly scoped to encryption (`use=enc` or only encryption-related
+     *                                                                               `key_ops`) are still rejected. Use the lax mode only with providers known
+     *                                                                               to omit `use`/`key_ops` on signing keys.
      */
     public function enableDiscovery(CacheInterface $cache, array|HttpClientInterface $client, string $oidcConfigurationCacheKey, bool $enforceKeyUsageVerification = true): void
     {

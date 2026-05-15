@@ -152,6 +152,7 @@ class IsCsrfTokenValidAttributeListenerTest extends TestCase
     public function testIsCsrfTokenValidCalledCorrectlyWithClosureId()
     {
         $request = new Request(request: ['_token' => 'bar']);
+        $controller = new IsCsrfTokenValidAttributeMethodsController();
 
         $csrfTokenManager = $this->createMock(CsrfTokenManagerInterface::class);
         $csrfTokenManager->expects($this->once())
@@ -161,16 +162,26 @@ class IsCsrfTokenValidAttributeListenerTest extends TestCase
 
         $event = new ControllerArgumentsEvent(
             $this->createStub(HttpKernelInterface::class),
-            [new IsCsrfTokenValidAttributeMethodsController(), 'withCustomExpressionId'],
+            [$controller, 'withCustomExpressionId'],
             ['123'],
             $request,
             null
         );
 
-        $attribute = new IsCsrfTokenValid(static fn (array $args, Request $request, ?object $controller): string => 'foo_'.$args['id']);
+        $seenController = null;
+        $seenRequest = null;
+        $attribute = new IsCsrfTokenValid(static function (array $args, Request $request, ?object $controller) use (&$seenController, &$seenRequest): string {
+            $seenController = $controller;
+            $seenRequest = $request;
+
+            return 'foo_'.$args['id'];
+        });
 
         $listener = new IsCsrfTokenValidAttributeListener($csrfTokenManager);
         $listener->onKernelControllerAttribute(new ControllerAttributeEvent($attribute, $event));
+
+        $this->assertSame($controller, $seenController);
+        $this->assertSame($request, $seenRequest);
     }
 
     public function testNonStringIdThrows()
