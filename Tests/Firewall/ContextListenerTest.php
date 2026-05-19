@@ -29,6 +29,7 @@ use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorage;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\UsageTrackingTokenStorage;
+use Symfony\Component\Security\Core\Authentication\Token\SwitchUserToken;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Authentication\Token\UsernamePasswordToken;
 use Symfony\Component\Security\Core\Exception\UnsupportedUserException;
@@ -268,6 +269,49 @@ class ContextListenerTest extends TestCase
         $goodRefreshedUser = new InMemoryUser('foobar', 'bar');
         $tokenStorage = $this->handleEventWithPreviousSession([new SupportingUserProvider($badRefreshedUser), new SupportingUserProvider($goodRefreshedUser)], $goodRefreshedUser);
         $this->assertSame($goodRefreshedUser, $tokenStorage->getToken()->getUser());
+    }
+
+    public function testSwitchUserTokenIsNotDeauthenticated()
+    {
+        $impersonated = new CustomUser('user', ['ROLE_USER'], 'pass', false);
+        $impersonator = new CustomUser('admin', ['ROLE_ADMIN', 'ROLE_ALLOWED_TO_SWITCH'], 'pass', false);
+        $originalToken = new UsernamePasswordToken($impersonator, 'context_key', $impersonator->getRoles());
+        $token = new SwitchUserToken($impersonated, 'context_key', $impersonated->getRoles(), $originalToken);
+
+        $session = new Session(new MockArraySessionStorage());
+        $session->set('_security_context_key', serialize($token));
+
+        $request = new Request();
+        $request->setSession($session);
+        $request->cookies->set('MOCKSESSID', true);
+
+        $provider = new class($impersonated) implements UserProviderInterface {
+            public function __construct(private CustomUser $refreshedUser)
+            {
+            }
+
+            public function loadUserByIdentifier(string $identifier): UserInterface
+            {
+                return $this->refreshedUser;
+            }
+
+            public function refreshUser(UserInterface $user): UserInterface
+            {
+                return $this->refreshedUser;
+            }
+
+            public function supportsClass(string $class): bool
+            {
+                return CustomUser::class === $class;
+            }
+        };
+
+        $tokenStorage = new TokenStorage();
+        $listener = new ContextListener($tokenStorage, [$provider], 'context_key');
+        $listener->authenticate(new RequestEvent($this->createStub(HttpKernelInterface::class), $request, HttpKernelInterface::MAIN_REQUEST));
+
+        $this->assertInstanceOf(SwitchUserToken::class, $tokenStorage->getToken());
+        $this->assertSame($impersonated, $tokenStorage->getToken()->getUser());
     }
 
     public function testTryAllUserProvidersUntilASupportingUserProviderIsFound()
