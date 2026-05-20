@@ -537,6 +537,24 @@ class IsGrantedAttributeListenerTest extends TestCase
         $listener->onKernelControllerArguments($event);
     }
 
+    public function testThrowsAccessDeniedExceptionWhenHeadMethodMatchesGetConstraint()
+    {
+        $authChecker = $this->createMock(AuthorizationCheckerInterface::class);
+        $authChecker->expects($this->once())->method('isGranted')->willReturn(false);
+
+        $event = new ControllerArgumentsEvent(
+            $this->createStub(HttpKernelInterface::class),
+            [new IsGrantedAttributeMethodsController(), 'adminWithMethodGet'],
+            [],
+            new Request([], [], [], [], [], ['REQUEST_METHOD' => 'HEAD']),
+            null
+        );
+
+        $listener = new IsGrantedAttributeListener($authChecker);
+        $this->expectException(AccessDeniedException::class);
+        $listener->onKernelControllerArguments($event);
+    }
+
     public function testFiltersOnlyIsGrantedAttributesUsingInstanceof()
     {
         $authChecker = $this->createMock(AuthorizationCheckerInterface::class);
