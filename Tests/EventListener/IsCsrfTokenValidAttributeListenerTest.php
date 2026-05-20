@@ -335,6 +335,29 @@ class IsCsrfTokenValidAttributeListenerTest extends TestCase
         $listener->onKernelControllerArguments($event);
     }
 
+    public function testIsCsrfTokenValidCalledCorrectlyWithGetOrPostMethodWithHeadMethod()
+    {
+        $request = new Request(request: ['_token' => 'bar']);
+        $request->setMethod('HEAD');
+
+        $csrfTokenManager = $this->createMock(CsrfTokenManagerInterface::class);
+        $csrfTokenManager->expects($this->once())
+            ->method('isTokenValid')
+            ->with(new CsrfToken('foo', 'bar'))
+            ->willReturn(true);
+
+        $event = new ControllerArgumentsEvent(
+            $this->createStub(HttpKernelInterface::class),
+            [new IsCsrfTokenValidAttributeMethodsController(), 'withGetOrPostMethod'],
+            [],
+            $request,
+            null
+        );
+
+        $listener = new IsCsrfTokenValidAttributeListener($csrfTokenManager);
+        $listener->onKernelControllerArguments($event);
+    }
+
     public function testIsCsrfTokenValidIgnoredWithGetOrPostMethodWithPutMethod()
     {
         $request = new Request([], ['_token' => 'bar']);

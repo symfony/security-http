@@ -44,9 +44,6 @@ final class IsCsrfTokenValidAttributeListener implements EventSubscriberInterfac
         $this->processAttribute($event->attribute, $kernelEvent);
     }
 
-    /**
-     * @internal since Symfony 8.1, use onKernelControllerAttribute() instead
-     */
     public function onKernelControllerArguments(ControllerArgumentsEvent $event): void
     {
         foreach ($event->getAttributes(IsCsrfTokenValid::class) as $attribute) {

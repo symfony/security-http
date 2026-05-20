@@ -43,6 +43,9 @@ class IsGranted
         public ?int $exceptionCode = null,
         array|string $methods = [],
     ) {
-        $this->methods = (array) $methods;
+        if (\in_array('GET', $methods = array_map('strtoupper', (array) $methods), true)) {
+            $methods[] = 'HEAD';
+        }
+        $this->methods = $methods;
     }
 }

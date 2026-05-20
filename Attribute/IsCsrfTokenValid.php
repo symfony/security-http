@@ -21,6 +21,9 @@ final class IsCsrfTokenValid
     public const SOURCE_QUERY = 0b0010;
     public const SOURCE_HEADER = 0b0100;
 
+    /** @var string[] */
+    public readonly array $methods;
+
     public function __construct(
         /**
          * Sets the id, or an Expression or a Closure evaluated to the id, used when generating the token.
@@ -38,7 +41,7 @@ final class IsCsrfTokenValid
          * Sets the available http methods that can be used to validate the token.
          * If not set, the token will be validated for all methods.
          */
-        public array|string $methods = [],
+        array|string $methods = [],
 
         /**
          * Sets the source targeted to read the tokenKey.
@@ -47,5 +50,9 @@ final class IsCsrfTokenValid
          */
         public int $tokenSource = self::SOURCE_PAYLOAD,
     ) {
+        if (\in_array('GET', $methods = array_map('strtoupper', (array) $methods), true)) {
+            $methods[] = 'HEAD';
+        }
+        $this->methods = $methods;
     }
 }

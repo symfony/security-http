@@ -271,7 +271,7 @@ final class OidcTokenHandler implements AccessTokenHandlerInterface
         $claimCheckerManager = new ClaimCheckerManager($checkers);
 
         // if this check fails, an InvalidClaimException is thrown
-        return $claimCheckerManager->check($claims);
+        return $claimCheckerManager->check($claims, ['iat', 'exp', 'aud', 'iss']);
     }
 
     private function decryptIfNeeded(string $accessToken): string
