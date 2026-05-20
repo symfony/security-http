@@ -543,7 +543,7 @@ class IsGrantedAttributeListenerTest extends TestCase
         $authChecker->expects($this->once())->method('isGranted')->willReturn(false);
 
         $event = new ControllerArgumentsEvent(
-            $this->createMock(HttpKernelInterface::class),
+            $this->createStub(HttpKernelInterface::class),
             [new IsGrantedAttributeMethodsController(), 'adminWithMethodGet'],
             [],
             new Request([], [], [], [], [], ['REQUEST_METHOD' => 'HEAD']),
