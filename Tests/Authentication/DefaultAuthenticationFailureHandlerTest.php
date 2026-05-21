@@ -227,6 +227,49 @@ class DefaultAuthenticationFailureHandlerTest extends TestCase
         $handler->onAuthenticationFailure($this->request, $this->exception);
     }
 
+    public function testFailurePathFromRequestIsIgnoredOnForward()
+    {
+        $options = ['failure_forward' => true];
+
+        $this->request->expects($this->any())
+            ->method('get')->with('_failure_path')
+            ->willReturn('/admin/export-users');
+
+        $subRequest = $this->getRequest();
+        $subRequest->attributes->expects($this->once())
+            ->method('set')->with(Security::AUTHENTICATION_ERROR, $this->exception);
+
+        $this->httpUtils->expects($this->once())
+            ->method('createRequest')->with($this->request, '/login')
+            ->willReturn($subRequest);
+
+        $response = new Response();
+        $this->httpKernel->expects($this->once())
+            ->method('handle')->with($subRequest, HttpKernelInterface::SUB_REQUEST)
+            ->willReturn($response);
+
+        $handler = new DefaultAuthenticationFailureHandler($this->httpKernel, $this->httpUtils, $options, $this->logger);
+        $result = $handler->onAuthenticationFailure($this->request, $this->exception);
+
+        $this->assertSame($response, $result);
+    }
+
+    public function testConfiguredFailurePathIsHonoredOnForward()
+    {
+        $options = ['failure_forward' => true, 'failure_path' => '/auth/login'];
+
+        $this->request->expects($this->any())
+            ->method('get')->with('_failure_path')
+            ->willReturn('/admin/export-users');
+
+        $this->httpUtils->expects($this->once())
+            ->method('createRequest')->with($this->request, '/auth/login')
+            ->willReturn($this->getRequest());
+
+        $handler = new DefaultAuthenticationFailureHandler($this->httpKernel, $this->httpUtils, $options, $this->logger);
+        $handler->onAuthenticationFailure($this->request, $this->exception);
+    }
+
     private function getRequest()
     {
         $request = $this->createMock(Request::class);
