@@ -11,7 +11,9 @@
 
 namespace Symfony\Component\Security\Http\Tests\Firewall;
 
+use Doctrine\Persistence\Proxy;
 use PHPUnit\Framework\TestCase;
+use ProxyManager\Proxy\LazyLoadingInterface;
 use Psr\Container\ContainerInterface;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
@@ -35,7 +37,11 @@ use Symfony\Component\Security\Core\User\InMemoryUser;
 use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Security\Core\User\UserProviderInterface;
 use Symfony\Component\Security\Http\Firewall\ContextListener;
+use Symfony\Component\Security\Http\Tests\Fixtures\LazyDoctrinePersistenceUser;
+use Symfony\Component\Security\Http\Tests\Fixtures\LazyProxyManagerUser;
+use Symfony\Component\Security\Http\Tests\Fixtures\LazyVarExporterUser;
 use Symfony\Component\Security\Http\Tests\Fixtures\NullUserToken;
+use Symfony\Component\VarExporter\LazyObjectInterface;
 use Symfony\Contracts\Service\ServiceLocatorTrait;
 
 class ContextListenerTest extends TestCase
@@ -104,6 +110,67 @@ class ContextListenerTest extends TestCase
         $token = unserialize($session->get('_security_session'));
         $this->assertInstanceOf(UsernamePasswordToken::class, $token);
         $this->assertEquals('test1', $token->getUserIdentifier());
+    }
+
+    /**
+     * @requires PHP 8.4
+     */
+    public function testOnKernelResponseInitializesNativeLazyUser()
+    {
+        $initialized = false;
+        $user = (new \ReflectionClass(InMemoryUser::class))->newLazyGhost(
+            function (InMemoryUser $u) use (&$initialized) {
+                $u->__construct('test', 'pass');
+                $initialized = true;
+            },
+            \ReflectionClass::SKIP_INITIALIZATION_ON_SERIALIZE,
+        );
+
+        $this->runSessionOnKernelResponse(new UsernamePasswordToken($user, 'phpunit', ['ROLE_USER']));
+
+        $this->assertTrue($initialized);
+    }
+
+    public function testOnKernelResponseInitializesDoctrinePersistenceProxyUser()
+    {
+        if (!interface_exists(Proxy::class)) {
+            $this->markTestSkipped('"doctrine/persistence" is not installed.');
+        }
+
+        $user = new LazyDoctrinePersistenceUser();
+        $this->assertFalse($user->initialized);
+
+        $this->runSessionOnKernelResponse(new UsernamePasswordToken($user, 'phpunit', ['ROLE_USER']));
+
+        $this->assertTrue($user->initialized);
+    }
+
+    public function testOnKernelResponseInitializesVarExporterLazyUser()
+    {
+        if (!interface_exists(LazyObjectInterface::class)) {
+            $this->markTestSkipped('"symfony/var-exporter" is not installed.');
+        }
+
+        $user = new LazyVarExporterUser();
+        $this->assertFalse($user->initialized);
+
+        $this->runSessionOnKernelResponse(new UsernamePasswordToken($user, 'phpunit', ['ROLE_USER']));
+
+        $this->assertTrue($user->initialized);
+    }
+
+    public function testOnKernelResponseInitializesProxyManagerLazyUser()
+    {
+        if (!interface_exists(LazyLoadingInterface::class)) {
+            $this->markTestSkipped('"friendsofphp/proxy-manager-lts" is not installed.');
+        }
+
+        $user = new LazyProxyManagerUser();
+        $this->assertFalse($user->initialized);
+
+        $this->runSessionOnKernelResponse(new UsernamePasswordToken($user, 'phpunit', ['ROLE_USER']));
+
+        $this->assertTrue($user->initialized);
     }
 
     public function testOnKernelResponseWillRemoveSession()
