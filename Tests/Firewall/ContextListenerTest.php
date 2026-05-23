@@ -16,7 +16,6 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\RequiresPhp;
 use PHPUnit\Framework\Attributes\TestWith;
 use PHPUnit\Framework\TestCase;
-use ProxyManager\Proxy\LazyLoadingInterface;
 use Psr\Container\ContainerInterface;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
@@ -43,7 +42,6 @@ use Symfony\Component\Security\Core\User\UserProviderInterface;
 use Symfony\Component\Security\Http\Firewall\ContextListener;
 use Symfony\Component\Security\Http\Tests\Fixtures\CustomUser;
 use Symfony\Component\Security\Http\Tests\Fixtures\LazyDoctrinePersistenceUser;
-use Symfony\Component\Security\Http\Tests\Fixtures\LazyProxyManagerUser;
 use Symfony\Component\Security\Http\Tests\Fixtures\LazyVarExporterUser;
 use Symfony\Component\Security\Http\Tests\Fixtures\NullUserToken;
 use Symfony\Component\VarExporter\LazyObjectInterface;
@@ -155,20 +153,6 @@ class ContextListenerTest extends TestCase
         }
 
         $user = new LazyVarExporterUser();
-        $this->assertFalse($user->initialized);
-
-        $this->runSessionOnKernelResponse(new UsernamePasswordToken($user, 'phpunit', ['ROLE_USER']));
-
-        $this->assertTrue($user->initialized);
-    }
-
-    public function testOnKernelResponseInitializesProxyManagerLazyUser()
-    {
-        if (!interface_exists(LazyLoadingInterface::class)) {
-            $this->markTestSkipped('"friendsofphp/proxy-manager-lts" is not installed.');
-        }
-
-        $user = new LazyProxyManagerUser();
         $this->assertFalse($user->initialized);
 
         $this->runSessionOnKernelResponse(new UsernamePasswordToken($user, 'phpunit', ['ROLE_USER']));
