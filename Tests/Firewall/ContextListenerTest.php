@@ -13,6 +13,7 @@ namespace Symfony\Component\Security\Http\Tests\Firewall;
 
 use Doctrine\Persistence\Proxy;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\RequiresPhp;
 use PHPUnit\Framework\Attributes\TestWith;
 use PHPUnit\Framework\TestCase;
 use ProxyManager\Proxy\LazyLoadingInterface;
@@ -116,9 +117,7 @@ class ContextListenerTest extends TestCase
         $this->assertEquals('test1', $token->getUserIdentifier());
     }
 
-    /**
-     * @requires PHP 8.4
-     */
+    #[RequiresPhp('>=8.4.0')]
     public function testOnKernelResponseInitializesNativeLazyUser()
     {
         $initialized = false;
