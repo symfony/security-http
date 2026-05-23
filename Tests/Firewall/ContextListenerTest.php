@@ -42,7 +42,6 @@ use Symfony\Component\Security\Core\User\UserProviderInterface;
 use Symfony\Component\Security\Http\Firewall\ContextListener;
 use Symfony\Component\Security\Http\Tests\Fixtures\CustomUser;
 use Symfony\Component\Security\Http\Tests\Fixtures\LazyDoctrinePersistenceUser;
-use Symfony\Component\Security\Http\Tests\Fixtures\LazyProxyManagerUser;
 use Symfony\Component\Security\Http\Tests\Fixtures\LazyVarExporterUser;
 use Symfony\Component\Security\Http\Tests\Fixtures\NullUserToken;
 use Symfony\Component\VarExporter\LazyObjectInterface;
