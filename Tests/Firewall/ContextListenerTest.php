@@ -120,7 +120,7 @@ class ContextListenerTest extends TestCase
     {
         $initialized = false;
         $user = (new \ReflectionClass(InMemoryUser::class))->newLazyGhost(
-            function (InMemoryUser $u) use (&$initialized) {
+            static function (InMemoryUser $u) use (&$initialized) {
                 $u->__construct('test', 'pass');
                 $initialized = true;
             },
