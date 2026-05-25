@@ -217,9 +217,6 @@ class DefaultAuthenticationFailureHandlerTest extends TestCase
         $this->request->attributes->set('_failure_path', '/admin/export-users');
 
         $subRequest = new Request();
-        $subRequest->attributes = $this->createMock(ParameterBag::class);
-        $subRequest->attributes->expects($this->once())
-            ->method('set')->with(SecurityRequestAttributes::AUTHENTICATION_ERROR, $this->exception);
 
         $httpUtils = $this->createMock(HttpUtils::class);
         $httpUtils->expects($this->once())
@@ -234,6 +231,7 @@ class DefaultAuthenticationFailureHandlerTest extends TestCase
         $result = $handler->onAuthenticationFailure($this->request, $this->exception);
 
         $this->assertSame($response, $result);
+        $this->assertSame($this->exception, $subRequest->attributes->get(SecurityRequestAttributes::AUTHENTICATION_ERROR));
     }
 
     public function testConfiguredFailurePathIsHonoredOnForward()
@@ -243,7 +241,6 @@ class DefaultAuthenticationFailureHandlerTest extends TestCase
         $this->request->attributes->set('_failure_path', '/admin/export-users');
 
         $subRequest = new Request();
-        $subRequest->attributes = $this->createStub(ParameterBag::class);
 
         $httpUtils = $this->createMock(HttpUtils::class);
         $httpUtils->expects($this->once())
