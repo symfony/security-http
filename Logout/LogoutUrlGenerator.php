@@ -15,6 +15,7 @@ use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * Provides generator functions for the logout URL.
@@ -22,7 +23,7 @@ use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
  * @author Fabien Potencier <fabien@symfony.com>
  * @author Jeremy Mikola <jmikola@gmail.com>
  */
-class LogoutUrlGenerator
+class LogoutUrlGenerator implements ResetInterface
 {
     private ?RequestStack $requestStack;
     private ?UrlGeneratorInterface $router;
@@ -161,5 +162,11 @@ class LogoutUrlGenerator
         }
 
         throw new \InvalidArgumentException('Unable to find logout in the current firewall, pass the firewall name manually to generate a logout URL.');
+    }
+
+    public function reset(): void
+    {
+        $this->currentFirewallName = null;
+        $this->currentFirewallContext = null;
     }
 }
