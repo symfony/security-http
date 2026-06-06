@@ -245,7 +245,9 @@ class ContextListenerTest extends TestCase
 
         $dispatcher->expects($this->once())
             ->method('addListener')
-            ->with(KernelEvents::RESPONSE, $listener->onKernelResponse(...));
+            ->with(KernelEvents::RESPONSE, $this->callback(static fn ($l) => $l instanceof \Closure
+                && $listener === (new \ReflectionFunction($l))->getClosureThis()
+                && 'onKernelResponse' === (new \ReflectionFunction($l))->name));
 
         $listener->authenticate(new RequestEvent($this->createStub(HttpKernelInterface::class), new Request(), HttpKernelInterface::MAIN_REQUEST));
     }
@@ -266,7 +268,9 @@ class ContextListenerTest extends TestCase
 
         $dispatcher->expects($this->once())
             ->method('removeListener')
-            ->with(KernelEvents::RESPONSE, $listener->onKernelResponse(...));
+            ->with(KernelEvents::RESPONSE, $this->callback(static fn ($l) => $l instanceof \Closure
+                && $listener === (new \ReflectionFunction($l))->getClosureThis()
+                && 'onKernelResponse' === (new \ReflectionFunction($l))->name));
 
         $listener->onKernelResponse($event);
     }
