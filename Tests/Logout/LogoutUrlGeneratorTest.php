@@ -106,4 +106,18 @@ class LogoutUrlGeneratorTest extends TestCase
 
         $this->generator->getLogoutPath();
     }
+
+    public function testStateLeakWhenCalledTwiceWithoutReset()
+    {
+        $this->generator->registerListener('secured_area', '/logout', null, null);
+
+        $this->generator->setCurrentFirewall('secured_area');
+        $this->assertSame('/logout', $this->generator->getLogoutPath());
+
+        $this->generator->reset();
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('This request is not behind a firewall, pass the firewall name manually to generate a logout URL.');
+        $this->generator->getLogoutPath();
+    }
 }
