@@ -619,4 +619,93 @@ class OidcTokenHandlerTest extends TestCase
         $this->assertCount(1, $keys);
         $this->assertSame(['sign'], $keys[0]['key_ops']);
     }
+
+    public function testTokenWithFutureIatIsRejectedByDefault()
+    {
+        $time = time();
+        $claims = [
+            'iat' => $time + 3,
+            'nbf' => $time,
+            'exp' => $time + 3600,
+            'iss' => 'https://www.example.com',
+            'aud' => self::AUDIENCE,
+            'sub' => 'e21bf182-1538-406e-8ccb-e25a17aba39f',
+        ];
+        $token = self::buildJWS(json_encode($claims));
+
+        $loggerMock = $this->createMock(LoggerInterface::class);
+        $loggerMock->expects($this->once())->method('error');
+
+        $this->expectException(BadCredentialsException::class);
+        $this->expectExceptionMessage('Invalid credentials.');
+
+        (new OidcTokenHandler(
+            new AlgorithmManager([new ES256()]),
+            self::getJWKSet(),
+            self::AUDIENCE,
+            ['https://www.example.com'],
+            'sub',
+            $loggerMock,
+        ))->getUserBadgeFrom($token);
+    }
+
+    public function testTokenWithFutureIatIsAcceptedWithAllowedTimeDrift()
+    {
+        $time = time();
+        $claims = [
+            'iat' => $time + 3,
+            'nbf' => $time,
+            'exp' => $time + 3600,
+            'iss' => 'https://www.example.com',
+            'aud' => self::AUDIENCE,
+            'sub' => 'e21bf182-1538-406e-8ccb-e25a17aba39f',
+        ];
+        $token = self::buildJWS(json_encode($claims));
+
+        $loggerMock = $this->createMock(LoggerInterface::class);
+        $loggerMock->expects($this->never())->method('error');
+
+        $userBadge = (new OidcTokenHandler(
+            new AlgorithmManager([new ES256()]),
+            self::getJWKSet(),
+            self::AUDIENCE,
+            ['https://www.example.com'],
+            'sub',
+            $loggerMock,
+            allowedTimeDrift: 5,
+        ))->getUserBadgeFrom($token);
+
+        $this->assertInstanceOf(UserBadge::class, $userBadge);
+        $this->assertSame('e21bf182-1538-406e-8ccb-e25a17aba39f', $userBadge->getUserIdentifier());
+    }
+
+    public function testTokenWithFutureIatBeyondAllowedTimeDriftIsRejected()
+    {
+        $time = time();
+        $claims = [
+            'iat' => $time + 10,
+            'nbf' => $time,
+            'exp' => $time + 3600,
+            'iss' => 'https://www.example.com',
+            'aud' => self::AUDIENCE,
+            'sub' => 'e21bf182-1538-406e-8ccb-e25a17aba39f',
+        ];
+        $token = self::buildJWS(json_encode($claims));
+
+        $loggerMock = $this->createMock(LoggerInterface::class);
+        $loggerMock->expects($this->once())->method('error');
+
+        $this->expectException(BadCredentialsException::class);
+        $this->expectExceptionMessage('Invalid credentials.');
+
+        (new OidcTokenHandler(
+            new AlgorithmManager([new ES256()]),
+            self::getJWKSet(),
+            self::AUDIENCE,
+            ['https://www.example.com'],
+            'sub',
+            $loggerMock,
+            allowedTimeDrift: 5,
+        ))->getUserBadgeFrom($token);
+    }
 }
