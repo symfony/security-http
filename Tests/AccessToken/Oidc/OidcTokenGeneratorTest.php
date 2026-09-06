@@ -34,7 +34,7 @@ class OidcTokenGeneratorTest extends TestCase
         $clock = new MockClock('1998-07-12T22:45:00+02:00');
 
         $generator = new OidcTokenGenerator($algorithmManager, $this->getJWKSet(), $audience, $issuers, 'sub', $clock);
-        $handler = new OidcTokenHandler($algorithmManager, $this->getJWKSet(), $audience, $issuers, 'sub', null, $clock);
+        $handler = new OidcTokenHandler($algorithmManager, $this->getJWKSet(), $audience, $issuers, 'sub', null, $clock, enforceAtJwtType: true);
 
         $token = $generator->generate('john_doe', null, null, 3600);
 

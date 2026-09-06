@@ -56,6 +56,7 @@ final class OidcTokenHandler implements AccessTokenHandlerInterface, ResetInterf
     private bool $enforceEncryption = false;
 
     private bool $enforceKeyUsageVerification = true;
+    private bool $enforceAtJwtType;
     private ?CacheInterface $discoveryCache = null;
     private ?string $oidcConfigurationCacheKey = null;
 
@@ -70,11 +71,12 @@ final class OidcTokenHandler implements AccessTokenHandlerInterface, ResetInterf
     private array $discoveries = [];
 
     /**
-     * @param bool $enforceAtJwtType Whether the "typ" header of the token must be "at+jwt" or "application/at+jwt",
-     *                               which RFC 9068 §4 requires from a JWT access token. This is what tells an access
-     *                               token apart from the ID token the provider issues for the same audience, which
-     *                               would otherwise pass every other check. Turn it off only for providers that do
-     *                               not follow the profile and keep emitting a plain "JWT" type.
+     * @param bool|null $enforceAtJwtType Whether the "typ" header of the token must be "at+jwt" or "application/at+jwt",
+     *                                    which RFC 9068 §4 requires from a JWT access token. This is what tells an access
+     *                                    token apart from the ID token the provider issues for the same audience, which
+     *                                    would otherwise pass every other check. Turn it off only for providers that do
+     *                                    not follow the profile and keep emitting a plain "JWT" type. Defaults to false
+     *                                    in 8.2 and to true as of 9.0.
      */
     public function __construct(
         private AlgorithmManager $signatureAlgorithm,
@@ -85,8 +87,13 @@ final class OidcTokenHandler implements AccessTokenHandlerInterface, ResetInterf
         private ?LoggerInterface $logger = null,
         private ClockInterface $clock = new Clock(),
         private int $allowedTimeDrift = 0,
-        private bool $enforceAtJwtType = true,
+        ?bool $enforceAtJwtType = null,
     ) {
+        if (null === $enforceAtJwtType) {
+            trigger_deprecation('symfony/security-http', '8.2', 'Not passing a value for the "$enforceAtJwtType" argument of "%s()" is deprecated, pass it explicitly; it will default to true in 9.0.', __METHOD__);
+        }
+
+        $this->enforceAtJwtType = $enforceAtJwtType ?? false;
     }
 
     public function enableJweSupport(JWKSet $decryptionKeyset, AlgorithmManager $decryptionAlgorithms, bool $enforceEncryption): void
