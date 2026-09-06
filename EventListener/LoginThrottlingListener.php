@@ -27,6 +27,8 @@ use Symfony\Component\Security\Http\SecurityRequestAttributes;
  */
 final class LoginThrottlingListener implements EventSubscriberInterface
 {
+    private const UNTOUCHED_LIMITER_ATTRIBUTE = '_security_login_throttling_untouched';
+
     public function __construct(
         private RequestStack $requestStack,
         private RequestRateLimiterInterface $limiter,
@@ -51,6 +53,9 @@ final class LoginThrottlingListener implements EventSubscriberInterface
             if (!$limit->isAccepted() || 0 === $limit->getRemainingTokens()) {
                 throw new TooManyLoginAttemptsAuthenticationException(ceil(($limit->getRetryAfter()->getTimestamp() - time()) / 60));
             }
+
+            // Remember an untouched window, a successful login then has nothing to reset.
+            $request->attributes->set(self::UNTOUCHED_LIMITER_ATTRIBUTE, $limit->getRemainingTokens() === $limit->getLimit());
         } else {
             $limit = $this->limiter->consume($request);
             if (!$limit->isAccepted()) {
@@ -61,9 +66,11 @@ final class LoginThrottlingListener implements EventSubscriberInterface
 
     public function onSuccessfulLogin(LoginSuccessEvent $event): void
     {
-        if (!$this->limiter instanceof PeekableRequestRateLimiterInterface) {
-            $this->limiter->reset($event->getRequest());
+        if ($this->limiter instanceof PeekableRequestRateLimiterInterface && $event->getRequest()->attributes->get(self::UNTOUCHED_LIMITER_ATTRIBUTE, false)) {
+            return;
         }
+
+        $this->limiter->reset($event->getRequest());
     }
 
     public function onFailedLogin(LoginFailureEvent $event): void
