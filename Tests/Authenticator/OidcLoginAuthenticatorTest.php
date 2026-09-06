@@ -19,8 +19,10 @@ use Jose\Component\Signature\Serializer\CompactSerializer;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use Psr\Clock\ClockInterface;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
 use Symfony\Component\Clock\Clock;
+use Symfony\Component\Clock\MockClock;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\JsonMockResponse;
 use Symfony\Component\HttpClient\Response\MockResponse;
@@ -1063,6 +1065,51 @@ class OidcLoginAuthenticatorTest extends TestCase
         $this->assertSame('access-123', $token->getAttribute('oidc_access_token'));
     }
 
+    public function testCreateTokenStoresTheRefreshTokenAndTheAccessTokenExpiry()
+    {
+        $nonce = bin2hex(random_bytes(16));
+        $state = bin2hex(random_bytes(16));
+
+        $this->oidcClient->method('exchangeCode')->willReturn([
+            'access_token' => 'access-123',
+            'id_token' => $this->buildIdToken(['nonce' => $nonce]),
+            'refresh_token' => 'refresh-123',
+            'expires_in' => 300,
+        ]);
+        $this->oidcClient->method('fetchUserInfo')->willReturn(['sub' => 'user-42']);
+
+        $clock = new MockClock('2026-09-06 12:00:00');
+        $authenticator = $this->createAuthenticator(clock: $clock);
+        $passport = $authenticator->authenticate($this->createCallbackRequest($state, $nonce));
+
+        $token = $authenticator->createToken($passport, 'main');
+
+        $this->assertSame('refresh-123', $token->getAttribute('oidc_refresh_token'));
+        $this->assertSame($clock->now()->getTimestamp() + 300, $token->getAttribute('oidc_access_token_expires_at'));
+    }
+
+    public function testCreateTokenReportsAMissingRefreshTokenAndExpiryAsNull()
+    {
+        // a provider only issues a refresh token when it was asked for one, e.g. with the
+        // "offline_access" scope, and "expires_in" is optional in RFC 6749, Section 5.1
+        $nonce = bin2hex(random_bytes(16));
+        $state = bin2hex(random_bytes(16));
+
+        $this->oidcClient->method('exchangeCode')->willReturn([
+            'access_token' => 'access-123',
+            'id_token' => $this->buildIdToken(['nonce' => $nonce]),
+        ]);
+        $this->oidcClient->method('fetchUserInfo')->willReturn(['sub' => 'user-42']);
+
+        $authenticator = $this->createAuthenticator();
+        $passport = $authenticator->authenticate($this->createCallbackRequest($state, $nonce));
+
+        $token = $authenticator->createToken($passport, 'main');
+
+        $this->assertNull($token->getAttribute('oidc_refresh_token'));
+        $this->assertNull($token->getAttribute('oidc_access_token_expires_at'));
+    }
+
     public function testSessionClearedEvenWhenExchangeCodeFails()
     {
         $state = bin2hex(random_bytes(16));
@@ -1393,7 +1440,7 @@ class OidcLoginAuthenticatorTest extends TestCase
         );
     }
 
-    private function createAuthenticator(array $options = [], ?UserProviderInterface $userProvider = null, array $authorizationParams = [], ?OidcSignatureVerifier $signatureVerifier = null): OidcLoginAuthenticator
+    private function createAuthenticator(array $options = [], ?UserProviderInterface $userProvider = null, array $authorizationParams = [], ?OidcSignatureVerifier $signatureVerifier = null, ?ClockInterface $clock = null): OidcLoginAuthenticator
     {
         return new OidcLoginAuthenticator(
             new HttpUtils(),
@@ -1407,6 +1454,7 @@ class OidcLoginAuthenticatorTest extends TestCase
             $options,
             $authorizationParams,
             $signatureVerifier,
+            $clock ?? new Clock(),
         );
     }
 }

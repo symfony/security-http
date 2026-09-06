@@ -12,6 +12,7 @@
 namespace Symfony\Component\Security\Http\Authenticator\Oidc;
 
 use Symfony\Component\Security\Core\Exception\AuthenticationException;
+use Symfony\Component\Security\Http\Exception\OidcInvalidGrantException;
 use Symfony\Component\Security\Http\Oidc\OidcDiscovery;
 use Symfony\Contracts\HttpClient\Exception\ExceptionInterface as HttpClientExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
@@ -63,6 +64,56 @@ abstract class OidcClient
 
         try {
             return $this->httpClient->request('POST', $tokenEndpoint, $options)->toArray();
+        } catch (HttpClientExceptionInterface $e) {
+            throw new AuthenticationException(\sprintf('The OIDC token endpoint request failed: "%s"', $e->getMessage()), previous: $e);
+        }
+    }
+
+    /**
+     * Renews an access token with the refresh token grant of RFC 6749, Section 6.
+     *
+     * The provider may answer with a new refresh token, which then replaces the one
+     * given here, and with a new ID token, which OIDC Core 1.0, Section 12.2 constrains.
+     *
+     * @param list<string> $scopes The scopes of the new access token, which RFC 6749,
+     *                             Section 6 only allows to narrow the ones the refresh
+     *                             token was issued with; the original scopes are asked
+     *                             for when the list is empty
+     *
+     * @return array<string, mixed>
+     *
+     * @throws OidcInvalidGrantException If the provider no longer honors the refresh token
+     * @throws AuthenticationException   If the token endpoint is missing, cannot be reached or returns an invalid response
+     */
+    public function refreshToken(#[\SensitiveParameter] string $refreshToken, array $scopes = []): array
+    {
+        $tokenEndpoint = $this->discovery->getSecureEndpoint('token_endpoint');
+
+        $body = [
+            'grant_type' => 'refresh_token',
+            'refresh_token' => $refreshToken,
+            'client_id' => $this->clientId,
+        ];
+
+        if ($scopes) {
+            $body['scope'] = implode(' ', $scopes);
+        }
+
+        $options = $this->applyClientAuthentication($body, []);
+
+        try {
+            $response = $this->httpClient->request('POST', $tokenEndpoint, $options);
+
+            // RFC 6749, Section 5.2: "invalid_grant" is the one error saying the refresh
+            // token itself is gone, where every other failure only means the request may
+            // be tried again; the status code is checked first so that a provider error
+            // page is never parsed as a token response
+            $statusCode = $response->getStatusCode();
+            if (400 <= $statusCode && $statusCode < 500 && 'invalid_grant' === ($response->toArray(false)['error'] ?? null)) {
+                throw new OidcInvalidGrantException('The OIDC provider rejected the refresh token: it expired, it was revoked, or it was issued to another client.');
+            }
+
+            return $response->toArray();
         } catch (HttpClientExceptionInterface $e) {
             throw new AuthenticationException(\sprintf('The OIDC token endpoint request failed: "%s"', $e->getMessage()), previous: $e);
         }

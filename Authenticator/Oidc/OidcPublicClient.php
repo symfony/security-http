@@ -33,7 +33,10 @@ class OidcPublicClient extends OidcClient
 {
     protected function applyClientAuthentication(array $body, array $options): array
     {
-        if ('' === ($body['code_verifier'] ?? '')) {
+        // the refresh token grant of RFC 6749, Section 6 carries neither a code nor a verifier;
+        // every other grant is refused without one, so that a grant added later never reaches the
+        // token endpoint unprotected
+        if ('refresh_token' !== ($body['grant_type'] ?? null) && '' === ($body['code_verifier'] ?? '')) {
             throw new \LogicException('A public OIDC client must exchange the authorization code with PKCE, as it sends no client secret. Pass the code verifier to "exchangeCode()", or use a confidential client.');
         }
 

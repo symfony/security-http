@@ -71,6 +71,8 @@ final class OidcSignatureVerifier
      */
     private const ROTATION_COOLDOWN = 60;
 
+    private readonly ClockInterface $clock;
+
     /**
      * @param list<string> $algorithms                  The signature algorithms accepted to verify the ID token (e.g. ["RS256"])
      * @param int          $jwksCacheTtl                The JWKS cache lifetime used when the provider advertises none
@@ -84,8 +86,13 @@ final class OidcSignatureVerifier
         private readonly array $algorithms = ['RS256'],
         private readonly int $jwksCacheTtl = 3600,
         private readonly bool $enforceKeyUsageVerification = true,
-        private readonly ClockInterface $clock = new Clock(),
+        ?ClockInterface $clock = null,
     ) {
+        if (null === $clock && !class_exists(Clock::class)) {
+            throw new \LogicException(\sprintf('The "symfony/clock" component is required to build "%s" without a clock. Try running "composer require symfony/clock", or pass any PSR-20 clock to the constructor.', self::class));
+        }
+
+        $this->clock = $clock ?? new Clock();
     }
 
     /**

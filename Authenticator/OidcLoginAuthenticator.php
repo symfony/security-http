@@ -11,6 +11,8 @@
 
 namespace Symfony\Component\Security\Http\Authenticator;
 
+use Psr\Clock\ClockInterface;
+use Symfony\Component\Clock\Clock;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -49,6 +51,7 @@ final class OidcLoginAuthenticator extends AbstractAuthenticator implements Auth
     private const MANAGED_PARAMS = ['response_type', 'client_id', 'redirect_uri', 'scope', 'state', 'nonce', 'code_challenge', 'code_challenge_method', 'max_age'];
 
     private array $options;
+    private readonly ClockInterface $clock;
 
     /**
      * @param array<string, string>      $authorizationParams Additional parameters of the authorization request, e.g.
@@ -58,6 +61,9 @@ final class OidcLoginAuthenticator extends AbstractAuthenticator implements Auth
      *                                                        or null to decode the token without verifying it, which
      *                                                        OIDC Core 1.0, Section 3.1.3.7, item 6 only allows as long
      *                                                        as the token endpoint request verifies TLS
+     * @param ClockInterface|null        $clock               Turns the "expires_in" of the token endpoint response into
+     *                                                        the absolute expiry the security token carries, or null to
+     *                                                        use the clock of the "symfony/clock" component
      */
     public function __construct(
         private readonly HttpUtils $httpUtils,
@@ -71,7 +77,14 @@ final class OidcLoginAuthenticator extends AbstractAuthenticator implements Auth
         array $options,
         private readonly array $authorizationParams = [],
         private readonly ?OidcSignatureVerifier $signatureVerifier = null,
+        ?ClockInterface $clock = null,
     ) {
+        if (null === $clock && !class_exists(Clock::class)) {
+            throw new \LogicException(\sprintf('The "symfony/clock" component is required to build "%s" without a clock. Try running "composer require symfony/clock", or pass any PSR-20 clock to the constructor.', self::class));
+        }
+
+        $this->clock = $clock ?? new Clock();
+
         $this->options = array_merge([
             'check_path' => '/oidc/callback',
             'firewall_name' => 'main',
@@ -273,6 +286,11 @@ final class OidcLoginAuthenticator extends AbstractAuthenticator implements Auth
         if (\is_array($tokenData)) {
             $token->setAttribute('oidc_id_token', $tokenData['id_token'] ?? null);
             $token->setAttribute('oidc_access_token', $tokenData['access_token'] ?? null);
+            // the refresh token of RFC 6749, Section 6 and the expiry of the access token
+            // it renews; both are null unless the provider issued them, as it only issues
+            // a refresh token when it was asked for one, and "expires_in" is optional
+            $token->setAttribute('oidc_refresh_token', $tokenData['refresh_token'] ?? null);
+            $token->setAttribute('oidc_access_token_expires_at', is_numeric($tokenData['expires_in'] ?? null) ? $this->clock->now()->getTimestamp() + (int) $tokenData['expires_in'] : null);
         }
 
         return $token;
