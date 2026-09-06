@@ -11,7 +11,16 @@
 
 namespace Symfony\Component\Security\Http\Tests\AccessToken\OAuth2;
 
+use Jose\Component\Core\Algorithm;
+use Jose\Component\Core\AlgorithmManager;
+use Jose\Component\Core\JWK;
+use Jose\Component\Core\JWKSet;
+use Jose\Component\Signature\Algorithm\ES256;
+use Jose\Component\Signature\Algorithm\HS256;
+use Jose\Component\Signature\JWSBuilder;
+use Jose\Component\Signature\Serializer\CompactSerializer;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\RequiresPhpExtension;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
 use Symfony\Component\Clock\MockClock;
@@ -341,6 +350,227 @@ class OAuth2TokenHandlerTest extends TestCase
         self::createHandler(new MockHttpClient())->enableCache(new ArrayAdapter(), 'introspection.', 0);
     }
 
+    /**
+     * RFC 9701 §4: the JWT response is served to a request announcing that media type.
+     *
+     * RFC 9701 §5 spells the "typ" header without the "application/" prefix RFC 7515 §4.1.9 makes
+     * optional, and a media type is case-insensitive, so all three spellings name the same type.
+     */
+    #[DataProvider('provideAcceptedResponseTypes')]
+    #[RequiresPhpExtension('openssl')]
+    public function testVerifiesASignedIntrospectionResponse(string $type)
+    {
+        $request = null;
+        $client = new MockHttpClient(static function (string $method, string $url, array $options) use (&$request, $type): MockResponse {
+            $request = $options;
+
+            return self::jwtResponse(self::signedResponsePayload(self::activeClaims(['sub' => 'jdoe'])), type: $type);
+        }, self::ENDPOINT);
+
+        $userBadge = self::createSignedResponseHandler($client)->getUserBadgeFrom('a-secret-token');
+
+        $this->assertSame(['Accept: application/token-introspection+jwt'], $request['normalized_headers']['accept']);
+        $this->assertSame('jdoe', $userBadge->getUserIdentifier());
+        $this->assertSame(self::activeClaims(['sub' => 'jdoe']), $userBadge->getAttributes());
+    }
+
+    public static function provideAcceptedResponseTypes(): iterable
+    {
+        yield 'the spelling of RFC 9701 §5' => ['token-introspection+jwt'];
+        yield 'the "application/" prefix RFC 7515 §4.1.9 makes optional' => ['application/token-introspection+jwt'];
+        yield 'another case' => ['Token-Introspection+JWT'];
+    }
+
+    /**
+     * RFC 9701 §5 names one media type, so the JWT branch is taken on that type and on nothing that
+     * merely starts with it, while the parameters and the case a "Content-Type" may carry are read.
+     */
+    #[DataProvider('provideResponseContentTypes')]
+    #[RequiresPhpExtension('openssl')]
+    public function testReadsTheMediaTypeOfTheResponseAtItsBoundary(string $contentType, bool $isJwt)
+    {
+        $client = new MockHttpClient([self::jwtResponse(self::signedResponsePayload(self::activeClaims(['sub' => 'jdoe'])), contentType: $contentType)], self::ENDPOINT);
+        $handler = self::createSignedResponseHandler($client);
+
+        if ($isJwt) {
+            $this->assertSame('jdoe', $handler->getUserBadgeFrom('a-secret-token')->getUserIdentifier());
+        } else {
+            $this->assertBadCredentials(\sprintf('A signed introspection response is required, but the authorization server answered with "%s".', strtolower($contentType)), $handler);
+        }
+    }
+
+    public static function provideResponseContentTypes(): iterable
+    {
+        yield 'the media type' => ['application/token-introspection+jwt', true];
+        yield 'with a parameter' => ['application/token-introspection+jwt; charset=utf-8', true];
+        yield 'another case' => ['Application/Token-Introspection+JWT', true];
+        yield 'another media type starting with it' => ['application/token-introspection+jwtfoo', false];
+        yield 'plain JSON' => ['application/json', false];
+    }
+
+    #[RequiresPhpExtension('openssl')]
+    public function testRejectsAnIntrospectionResponseSignedWithAnotherKey()
+    {
+        $client = new MockHttpClient([self::jwtResponse(self::signedResponsePayload(self::activeClaims(['sub' => 'jdoe'])), self::otherJwk())], self::ENDPOINT);
+
+        $this->assertBadCredentials('The signature of the introspection response is invalid.', self::createSignedResponseHandler($client));
+    }
+
+    /**
+     * RFC 9701 §8.1: without the "typ" check, an access token of the same issuer would do.
+     */
+    #[RequiresPhpExtension('openssl')]
+    public function testRejectsAnIntrospectionResponseWithoutTheExpectedType()
+    {
+        $client = new MockHttpClient([self::jwtResponse(self::signedResponsePayload(self::activeClaims(['sub' => 'jdoe'])), type: 'JWT')], self::ENDPOINT);
+
+        $this->assertBadCredentials('The "typ" header is invalid.', self::createSignedResponseHandler($client));
+    }
+
+    /**
+     * RFC 9701 §8.1: the "typ" header is what tells an introspection response from another JWT of
+     * the same issuer, so one carrying none is not an introspection response either.
+     */
+    #[RequiresPhpExtension('openssl')]
+    public function testRejectsAnIntrospectionResponseWithoutAnyType()
+    {
+        $client = new MockHttpClient([self::jwtResponse(self::signedResponsePayload(self::activeClaims(['sub' => 'jdoe'])), type: null)], self::ENDPOINT);
+
+        $this->assertBadCredentials('The following header parameters are mandatory: typ.', self::createSignedResponseHandler($client));
+    }
+
+    /**
+     * RFC 9701 §5 wraps the members in a JSON object, so a payload that is not one carries no claim
+     * to check: it is refused before the checkers, which only ever read an array.
+     */
+    #[RequiresPhpExtension('openssl')]
+    public function testRejectsAnIntrospectionResponseWhosePayloadIsNotAnObject()
+    {
+        $client = new MockHttpClient([self::jwtResponse('"nope"')], self::ENDPOINT);
+
+        $this->assertBadCredentials('The payload of the introspection response is not a JSON object.', self::createSignedResponseHandler($client));
+    }
+
+    /**
+     * RFC 9701 §5: the algorithm is the one the resource server declared, not the one the response names.
+     */
+    #[RequiresPhpExtension('openssl')]
+    public function testRejectsAnIntrospectionResponseSignedWithAnotherAlgorithm()
+    {
+        $client = new MockHttpClient([self::jwtResponse(self::signedResponsePayload(self::activeClaims(['sub' => 'jdoe'])), algorithm: new HS256(), jwk: new JWK(['kty' => 'oct', 'k' => 'MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE']))], self::ENDPOINT);
+
+        $this->assertBadCredentials('The algorithm "HS256" is not supported.', self::createSignedResponseHandler($client));
+    }
+
+    /**
+     * RFC 9701 §5: "iss", "aud" and "iat" are mandatory at the top level.
+     */
+    #[DataProvider('provideMandatoryTopLevelClaims')]
+    #[RequiresPhpExtension('openssl')]
+    public function testRejectsAnIntrospectionResponseWithoutAMandatoryTopLevelClaim(string $claim)
+    {
+        $payload = self::signedResponsePayload(self::activeClaims(['sub' => 'jdoe']));
+        unset($payload[$claim]);
+        $client = new MockHttpClient([self::jwtResponse($payload)], self::ENDPOINT);
+
+        $this->assertBadCredentials(\sprintf('The following claims are mandatory: %s.', $claim), self::createSignedResponseHandler($client));
+    }
+
+    public static function provideMandatoryTopLevelClaims(): iterable
+    {
+        yield ['iss'];
+        yield ['aud'];
+        yield ['iat'];
+    }
+
+    #[RequiresPhpExtension('openssl')]
+    public function testRejectsAnIntrospectionResponseMintedForAnotherAudience()
+    {
+        $payload = self::signedResponsePayload(self::activeClaims(['sub' => 'jdoe']));
+        $payload['aud'] = 'https://other-api.example.com';
+        $client = new MockHttpClient([self::jwtResponse($payload)], self::ENDPOINT);
+
+        $this->assertBadCredentials('The "aud" claim is invalid.', self::createSignedResponseHandler($client));
+    }
+
+    #[RequiresPhpExtension('openssl')]
+    public function testRejectsAnIntrospectionResponseIssuedInTheFuture()
+    {
+        $payload = self::signedResponsePayload(self::activeClaims(['sub' => 'jdoe']));
+        $payload['iat'] = 1719000001;
+        $client = new MockHttpClient([self::jwtResponse($payload)], self::ENDPOINT);
+
+        $this->assertBadCredentials('The JWT is issued in the future.', self::createSignedResponseHandler($client));
+    }
+
+    #[RequiresPhpExtension('openssl')]
+    public function testRejectsAnIntrospectionResponseWhoseMembersAreNotAnObject()
+    {
+        $payload = self::signedResponsePayload(self::activeClaims(['sub' => 'jdoe']));
+        $payload['token_introspection'] = 'active';
+        $client = new MockHttpClient([self::jwtResponse($payload)], self::ENDPOINT);
+
+        $this->assertBadCredentials('The "token_introspection" claim of the introspection response is not a JSON object.', self::createSignedResponseHandler($client));
+    }
+
+    #[RequiresPhpExtension('openssl')]
+    public function testRejectsAnIntrospectionResponseWithoutTheTokenIntrospectionClaim()
+    {
+        $payload = self::signedResponsePayload(self::activeClaims(['sub' => 'jdoe']));
+        unset($payload['token_introspection']);
+        $client = new MockHttpClient([self::jwtResponse($payload)], self::ENDPOINT);
+
+        $this->assertBadCredentials('The following claims are mandatory: token_introspection.', self::createSignedResponseHandler($client));
+    }
+
+    #[RequiresPhpExtension('openssl')]
+    public function testRejectsAnIntrospectionResponseFromAnotherIssuer()
+    {
+        $payload = self::signedResponsePayload(self::activeClaims(['sub' => 'jdoe']));
+        $payload['iss'] = 'https://evil.example.com/';
+        $client = new MockHttpClient([self::jwtResponse($payload)], self::ENDPOINT);
+
+        $this->assertBadCredentials('Unknown issuer.', self::createSignedResponseHandler($client));
+    }
+
+    #[RequiresPhpExtension('openssl')]
+    public function testChecksTheIssuerRepeatedInASignedResponse()
+    {
+        $client = new MockHttpClient([self::jwtResponse(self::signedResponsePayload(self::activeClaims(['sub' => 'jdoe', 'iss' => 'https://evil.example.com/'])))], self::ENDPOINT);
+
+        $this->assertBadCredentials('The token was issued by "https://evil.example.com/", where "'.self::ISSUER.'" was expected.', self::createSignedResponseHandler($client));
+    }
+
+    #[RequiresPhpExtension('openssl')]
+    public function testRejectsAPlainResponseWhenASignedOneIsEnforced()
+    {
+        $client = new MockHttpClient([new JsonMockResponse(self::activeClaims(['sub' => 'jdoe']))], self::ENDPOINT);
+
+        $this->assertBadCredentials('A signed introspection response is required, but the authorization server answered with "application/json".', self::createSignedResponseHandler($client));
+    }
+
+    #[RequiresPhpExtension('openssl')]
+    public function testAcceptsAPlainResponseWhenASignedOneIsNotEnforced()
+    {
+        $request = null;
+        $client = new MockHttpClient(static function (string $method, string $url, array $options) use (&$request): MockResponse {
+            $request = $options;
+
+            return new JsonMockResponse(self::activeClaims(['sub' => 'jdoe', 'iss' => self::ISSUER, 'aud' => self::AUDIENCE]));
+        }, self::ENDPOINT);
+
+        $this->assertSame('jdoe', self::createSignedResponseHandler($client, enforce: false)->getUserBadgeFrom('a-secret-token')->getUserIdentifier());
+        $this->assertSame(['Accept: application/token-introspection+jwt, application/json'], $request['normalized_headers']['accept']);
+    }
+
+    #[RequiresPhpExtension('openssl')]
+    public function testRejectsASignedResponseWhenNoneIsExpected()
+    {
+        $client = new MockHttpClient([self::jwtResponse(self::signedResponsePayload(self::activeClaims(['sub' => 'jdoe'])))], self::ENDPOINT);
+
+        $this->assertBadCredentials('The authorization server returned a JWT introspection response, which this resource server is not configured to verify.', self::createHandler($client));
+    }
+
     private function assertBadCredentials(string $message, Oauth2TokenHandler $handler): void
     {
         try {
@@ -366,5 +596,76 @@ class OAuth2TokenHandlerTest extends TestCase
     private static function activeClaims(array $claims = []): array
     {
         return ['active' => true] + $claims;
+    }
+
+    private static function createSignedResponseHandler(MockHttpClient $client, bool $enforce = true): Oauth2TokenHandler
+    {
+        $handler = self::createHandler($client, [self::AUDIENCE], self::ISSUER);
+        $handler->enableSignedResponse(new AlgorithmManager([new ES256()]), new JWKSet([self::publicJwk()]), $enforce);
+
+        return $handler;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function signedResponsePayload(array $introspection): array
+    {
+        return [
+            'iss' => self::ISSUER,
+            'aud' => self::AUDIENCE,
+            'iat' => 1719000000,
+            'token_introspection' => $introspection,
+        ];
+    }
+
+    private static function jwtResponse(array|string $payload, ?JWK $jwk = null, ?string $type = 'token-introspection+jwt', ?Algorithm $algorithm = null, string $contentType = 'application/token-introspection+jwt'): MockResponse
+    {
+        $algorithm ??= new ES256();
+        $header = ['alg' => $algorithm->name()];
+        if (null !== $type) {
+            $header['typ'] = $type;
+        }
+
+        $jws = (new CompactSerializer())->serialize((new JWSBuilder(new AlgorithmManager([$algorithm])))
+            ->withPayload(\is_string($payload) ? $payload : json_encode($payload, \JSON_THROW_ON_ERROR))
+            ->addSignature($jwk ?? self::jwk(), $header)
+            ->build()
+        );
+
+        return new MockResponse($jws, ['response_headers' => ['Content-Type' => $contentType]]);
+    }
+
+    /**
+     * Tip: use https://mkjwk.org/ to generate a JWK.
+     */
+    private static function jwk(): JWK
+    {
+        return new JWK([
+            'kty' => 'EC',
+            'crv' => 'P-256',
+            'x' => '0QEAsI1wGI-dmYatdUZoWSRWggLEpyzopuhwk-YUnA4',
+            'y' => 'KYl-qyZ26HobuYwlQh-r0iHX61thfP82qqEku7i0woo',
+            'd' => 'iA_TV2zvftni_9aFAQwFO_9aypfJFCSpcCyevDvz220',
+        ]);
+    }
+
+    private static function publicJwk(): JWK
+    {
+        $key = self::jwk()->all();
+        unset($key['d']);
+
+        return new JWK($key);
+    }
+
+    private static function otherJwk(): JWK
+    {
+        return new JWK([
+            'kty' => 'EC',
+            'crv' => 'P-256',
+            'x' => 'FtgMtrsKDboRO-Zo0XC7tDJTATHVmwuf9GK409kkars',
+            'y' => 'rWDE0ERU2SfwGYCo1DWWdgFEbZ0MiAXLRBBOzBgs_jY',
+            'd' => '4G7bRIiKih0qrFxc0dtvkHUll19tTyctoCR3eIbOrO0',
+        ]);
     }
 }

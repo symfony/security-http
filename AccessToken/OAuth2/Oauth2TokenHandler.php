@@ -11,6 +11,14 @@
 
 namespace Symfony\Component\Security\Http\AccessToken\OAuth2;
 
+use Jose\Component\Checker;
+use Jose\Component\Checker\ClaimCheckerManager;
+use Jose\Component\Core\AlgorithmManager;
+use Jose\Component\Core\JWKSet;
+use Jose\Component\Signature\JWSTokenSupport;
+use Jose\Component\Signature\JWSVerifier;
+use Jose\Component\Signature\Serializer\CompactSerializer;
+use Jose\Component\Signature\Serializer\JWSSerializerManager;
 use Psr\Clock\ClockInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Clock\Clock;
@@ -38,15 +46,37 @@ use function Symfony\Component\String\u;
  * token as active while dating it in the past or the future, or while naming another issuer or
  * another audience, has described a token this resource server must not honor.
  *
+ * The introspection response may also be asked to be a signed JWT, as RFC 9701 defines it: see
+ * {@see enableSignedResponse()}. The endpoint is then requested with the matching "Accept" header,
+ * the JWT is verified against the keys of the authorization server, and the members of RFC 7662 are
+ * read from the "token_introspection" claim it wraps.
+ *
+ * Anything the introspection request throws is an answer the resource server could not read, so it
+ * turns into the bad credentials the firewall reports as a 401: a server that is unreachable, that
+ * refuses the caller, or that answers something other than the JSON object RFC 7662 §2.2 defines
+ * says nothing about the token, and never that it is usable.
+ *
  * @see https://datatracker.ietf.org/doc/html/rfc7662 OAuth 2.0 Token Introspection (RFC 7662)
+ * @see https://datatracker.ietf.org/doc/html/rfc9701 JWT Response for OAuth Token Introspection (RFC 9701)
  *
  * @internal
  */
 final class Oauth2TokenHandler implements AccessTokenHandlerInterface
 {
+    /**
+     * RFC 9701 §5: the media type of a JWT introspection response, also carried by its "typ" header,
+     * where RFC 7515 §4.1.9 lets the "application/" prefix be omitted, so both spellings are read.
+     */
+    private const JWT_RESPONSE_MEDIA_TYPE = 'application/token-introspection+jwt';
+    private const JWT_RESPONSE_TYPES = ['token-introspection+jwt', 'application/token-introspection+jwt'];
+
     private ?CacheInterface $cache = null;
     private string $cacheKeyPrefix = '';
     private int $cacheTtl = 0;
+
+    private ?AlgorithmManager $signatureAlgorithms = null;
+    private ?JWKSet $signatureKeyset = null;
+    private bool $enforceSignedResponse = true;
 
     /**
      * @param HttpClientInterface $client           The client the introspection endpoint is reached with, whose
@@ -98,23 +128,43 @@ final class Oauth2TokenHandler implements AccessTokenHandlerInterface
     }
 
     /**
+     * Requests a JWT introspection response and verifies its signature, as defined by RFC 9701.
+     *
+     * @param bool $enforce Whether a plain JSON response must be refused once the authorization server is expected to sign the introspection response
+     */
+    public function enableSignedResponse(AlgorithmManager $algorithms, JWKSet $keyset, bool $enforce = true): void
+    {
+        $this->signatureAlgorithms = $algorithms;
+        $this->signatureKeyset = $keyset;
+        $this->enforceSignedResponse = $enforce;
+    }
+
+    /**
      * Introspects the token and builds a user badge out of the members of the response.
      *
      * RFC 7662 §2.2 guarantees a single member on an inactive token, "active", and makes it a
-     * boolean, so it is the first one read and it is read as one: the string "false" an
-     * authorization server may answer with does not describe an active token. The identifier
-     * claims are only looked up once the server has stated that the token can be used.
+     * boolean, so it is the first one read and it is compared to true: nothing else states that the
+     * token can be used, the string "false" an authorization server may answer with least of all.
+     * The identifier claims are only looked up once that member has stated it.
+     *
+     * The JOSE checkers a signed response goes through report a refused "typ" header or a missing
+     * mandatory claim with exceptions of their own, which the catch-all around the response covers
+     * as it covers those of the HTTP client.
      */
     public function getUserBadgeFrom(string $accessToken): UserBadge
     {
+        if (null !== $this->signatureKeyset && (!class_exists(JWSVerifier::class) || !class_exists(Checker\HeaderCheckerManager::class))) {
+            throw new \LogicException('You cannot verify signed introspection responses since "web-token/jwt-library" is not installed. Try running "composer require web-token/jwt-library".');
+        }
+
         try {
-            $claims = $this->introspect($accessToken);
+            ['claims' => $claims, 'signed' => $signed] = $this->introspect($accessToken);
 
             if (true !== ($claims['active'] ?? false)) {
                 throw new BadCredentialsException('The claim "active" was not found on the authorization server response or is set to false.');
             }
 
-            $this->verifyClaims($claims);
+            $this->verifyClaims($claims, $signed);
             $identifier = $this->getUserIdentifier($claims);
 
             return new UserBadge($identifier, fn () => $this->createUser($claims), $claims);
@@ -135,7 +185,7 @@ final class Oauth2TokenHandler implements AccessTokenHandlerInterface
      * The lifetime of an entry is the shorter of the configured one and of what the "exp" of the
      * response leaves, and only the response of an active token is stored: see {@see enableCache()}.
      *
-     * @return array<string, mixed> The members of the introspection response
+     * @return array{claims: array<string, mixed>, signed: bool} The members of the introspection response, and whether they were read from a signed one
      */
     private function introspect(string $accessToken): array
     {
@@ -146,17 +196,17 @@ final class Oauth2TokenHandler implements AccessTokenHandlerInterface
         $key = $this->cacheKeyPrefix.hash('sha256', $accessToken);
 
         return $this->cache->get($key, function (ItemInterface $item, bool &$save) use ($accessToken): array {
-            $claims = $this->requestIntrospection($accessToken);
+            $response = $this->requestIntrospection($accessToken);
 
             $ttl = $this->cacheTtl;
-            if (is_numeric($claims['exp'] ?? null)) {
-                $ttl = min($ttl, (int) $claims['exp'] - $this->clock->now()->getTimestamp());
+            if (is_numeric($response['claims']['exp'] ?? null)) {
+                $ttl = min($ttl, (int) $response['claims']['exp'] - $this->clock->now()->getTimestamp());
             }
 
-            $save = 0 < $ttl && true === ($claims['active'] ?? null);
+            $save = 0 < $ttl && true === ($response['claims']['active'] ?? false);
             $item->expiresAfter(max(1, $ttl));
 
-            return $claims;
+            return $response;
         });
     }
 
@@ -165,19 +215,111 @@ final class Oauth2TokenHandler implements AccessTokenHandlerInterface
      *
      * The request carries the token and the "access_token" hint of RFC 7662 §2.1, and is posted to
      * the base URI of the client, which is where the endpoint and the credentials of this resource
-     * server are configured.
+     * server are configured. It asks for the media types it is able to read: a JWT introspection
+     * response is only ever served to a request announcing it, per RFC 9701 §4, and plain JSON is
+     * still offered alongside it when an unsigned response is tolerated, so that an authorization
+     * server that cannot sign answers instead of refusing the media type. The response headers are
+     * read before its body, so that the payload of a 4xx or a 5xx is never mistaken for an
+     * introspection response.
      *
-     * @return array<string, mixed>
+     * @return array{claims: array<string, mixed>, signed: bool}
      */
     private function requestIntrospection(string $accessToken): array
     {
-        return $this->client->request('POST', '', [
-            'headers' => ['Accept' => 'application/json'],
+        if (null === $this->signatureKeyset) {
+            $accept = 'application/json';
+        } else {
+            $accept = $this->enforceSignedResponse ? self::JWT_RESPONSE_MEDIA_TYPE : self::JWT_RESPONSE_MEDIA_TYPE.', application/json';
+        }
+
+        $response = $this->client->request('POST', '', [
+            'headers' => ['Accept' => $accept],
             'body' => [
                 'token' => $accessToken,
                 'token_type_hint' => 'access_token',
             ],
-        ])->toArray();
+        ]);
+        $contentType = strtolower(trim(strtok($response->getHeaders()['content-type'][0] ?? '', ';')));
+
+        if (self::JWT_RESPONSE_MEDIA_TYPE === $contentType) {
+            if (null === $this->signatureKeyset) {
+                throw new BadCredentialsException('The authorization server returned a JWT introspection response, which this resource server is not configured to verify.');
+            }
+
+            return ['claims' => $this->verifySignedResponse($response->getContent()), 'signed' => true];
+        }
+
+        if (null !== $this->signatureKeyset && $this->enforceSignedResponse) {
+            throw new BadCredentialsException(\sprintf('A signed introspection response is required, but the authorization server answered with "%s".', $contentType ?: 'no content type'));
+        }
+
+        return ['claims' => $response->toArray(), 'signed' => false];
+    }
+
+    /**
+     * Verifies a JWT introspection response and returns the members it wraps.
+     *
+     * Beyond the signature, two things are checked because RFC 9701 §8.1 rests on them to keep an
+     * access token or an ID token of the same issuer from being passed off as an introspection
+     * response: the "typ" header, and the nesting of the RFC 7662 members inside the
+     * "token_introspection" claim. The "iss", "aud" and "iat" claims that §5 makes mandatory at the
+     * top level are required as well, and confronted with the issuer and the audiences declared here.
+     *
+     * The library is supported from 3.x, where verify() does not exist yet and verifyWithKeySet()
+     * is not deprecated yet; static analysis only ever sees the newest version, hence the two
+     * ignores around the verification.
+     *
+     * @return array<string, mixed>
+     */
+    private function verifySignedResponse(string $jwt): array
+    {
+        try {
+            $jws = (new JWSSerializerManager([new CompactSerializer()]))->unserialize($jwt);
+        } catch (\InvalidArgumentException $e) {
+            throw new BadCredentialsException('The introspection response is not a valid JWT.', previous: $e);
+        }
+
+        $jwsVerifier = new JWSVerifier($this->signatureAlgorithms);
+
+        if (method_exists($jwsVerifier, 'verify')) { // @phpstan-ignore function.alreadyNarrowedType
+            $verified = $jwsVerifier->verify($jws, $this->signatureKeyset, 0)->isVerified();
+        } else {
+            $verified = $jwsVerifier->verifyWithKeySet($jws, $this->signatureKeyset, 0); // @phpstan-ignore method.deprecated
+        }
+
+        if (!$verified) {
+            throw new BadCredentialsException('The signature of the introspection response is invalid.');
+        }
+
+        (new Checker\HeaderCheckerManager([
+            new Checker\AlgorithmChecker($this->signatureAlgorithms->list()),
+            new Checker\CallableChecker('typ', static fn ($value) => \is_string($value) && \in_array(strtolower($value), self::JWT_RESPONSE_TYPES, true)),
+        ], [new JWSTokenSupport()]))->check($jws, 0, ['alg', 'typ']);
+
+        try {
+            $payload = json_decode($jws->getPayload() ?? '', true, 512, \JSON_THROW_ON_ERROR);
+        } catch (\JsonException $e) {
+            throw new BadCredentialsException('The payload of the introspection response is not valid JSON.', previous: $e);
+        }
+
+        if (!\is_array($payload)) {
+            throw new BadCredentialsException('The payload of the introspection response is not a JSON object.');
+        }
+
+        $checkers = [new Checker\IssuedAtChecker(clock: $this->clock, allowedTimeDrift: $this->allowedTimeDrift)];
+        if (null !== $this->issuer) {
+            $checkers[] = new Checker\IssuerChecker([$this->issuer]);
+        }
+        if ($this->audiences) {
+            $checkers[] = new Checker\CallableChecker('aud', fn ($value) => $this->matchesAudience($value));
+        }
+        (new ClaimCheckerManager($checkers))->check($payload, ['iss', 'aud', 'iat', 'token_introspection']);
+
+        if (!\is_array($payload['token_introspection'])) {
+            throw new BadCredentialsException('The "token_introspection" claim of the introspection response is not a JSON object.');
+        }
+
+        return $payload['token_introspection'];
     }
 
     /**
@@ -188,11 +330,14 @@ final class Oauth2TokenHandler implements AccessTokenHandlerInterface
      * token is already expired, not valid yet or minted in the future still has no reason to honor
      * it. The issuer and the audience are checked when this resource server declares which ones it
      * expects, and the response is then required to carry them, since a token issued by another
-     * authorization server, or for another resource server, must not be honored.
+     * authorization server, or for another resource server, must not be honored. A signed response
+     * is the exception: RFC 9701 §5 already binds it to both at the top level of the JWT, so the
+     * members it wraps are only confronted with them when they repeat them.
      *
      * @param array<string, mixed> $claims
+     * @param bool                 $signed Whether the members come from a JWT introspection response, whose issuer and audience were verified at its top level
      */
-    private function verifyClaims(array $claims): void
+    private function verifyClaims(array $claims, bool $signed): void
     {
         $now = $this->clock->now()->getTimestamp();
 
@@ -208,11 +353,11 @@ final class Oauth2TokenHandler implements AccessTokenHandlerInterface
             throw new BadCredentialsException('The token reported by the authorization server was issued in the future.');
         }
 
-        if (null !== $this->issuer && $this->issuer !== ($claims['iss'] ?? null)) {
+        if (null !== $this->issuer && (!$signed || isset($claims['iss'])) && $this->issuer !== ($claims['iss'] ?? null)) {
             throw new BadCredentialsException(\sprintf('The token was issued by "%s", where "%s" was expected.', \is_string($claims['iss'] ?? null) ? $claims['iss'] : '', $this->issuer));
         }
 
-        if ($this->audiences && !$this->matchesAudience($claims['aud'] ?? null)) {
+        if ($this->audiences && (!$signed || isset($claims['aud'])) && !$this->matchesAudience($claims['aud'] ?? null)) {
             throw new BadCredentialsException(\sprintf('The token is not intended for any of the audiences "%s".', implode('", "', $this->audiences)));
         }
     }
