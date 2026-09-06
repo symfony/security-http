@@ -21,6 +21,7 @@ use Symfony\Component\Security\Http\AccessToken\AccessTokenExtractorInterface;
 use Symfony\Component\Security\Http\AccessToken\AccessTokenHandlerInterface;
 use Symfony\Component\Security\Http\Authentication\AuthenticationFailureHandlerInterface;
 use Symfony\Component\Security\Http\Authentication\AuthenticationSuccessHandlerInterface;
+use Symfony\Component\Security\Http\Authenticator\Passport\Badge\UserBadge;
 use Symfony\Component\Security\Http\Authenticator\Passport\Passport;
 use Symfony\Component\Security\Http\Authenticator\Passport\SelfValidatingPassport;
 use Symfony\Component\Security\Http\Authenticator\Token\PostAuthenticationToken;
@@ -36,6 +37,19 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  */
 class AccessTokenAuthenticator implements AuthenticatorInterface, FallbackAuthenticationEntryPointInterface
 {
+    /**
+     * The token attribute holding the scopes the access token was granted, as a list of strings.
+     *
+     * @see https://datatracker.ietf.org/doc/html/rfc6749#section-3.3
+     */
+    public const SCOPE_ATTRIBUTE = 'oauth2_scope';
+
+    /**
+     * The claims a scope is read from, in order of precedence: "scope" is the one RFC 9068 §2.2.3
+     * and RFC 7662 §2.2 define, "scp" is the spelling some providers use instead.
+     */
+    private const SCOPE_CLAIMS = ['scope', 'scp'];
+
     private ?TranslatorInterface $translator = null;
 
     /**
@@ -81,7 +95,10 @@ class AccessTokenAuthenticator implements AuthenticatorInterface, FallbackAuthen
 
     public function createToken(Passport $passport, string $firewallName): TokenInterface
     {
-        return new PostAuthenticationToken($passport->getUser(), $firewallName, $passport->getUser()->getRoles());
+        $token = new PostAuthenticationToken($passport->getUser(), $firewallName, $passport->getUser()->getRoles());
+        $token->setAttribute(self::SCOPE_ATTRIBUTE, self::extractScopes($passport->getBadge(UserBadge::class)?->getAttributes() ?? []));
+
+        return $token;
     }
 
     public function onAuthenticationSuccess(Request $request, TokenInterface $token, string $firewallName): ?Response
@@ -123,6 +140,28 @@ class AccessTokenAuthenticator implements AuthenticatorInterface, FallbackAuthen
     public function setTranslator(?TranslatorInterface $translator): void
     {
         $this->translator = $translator;
+    }
+
+    /**
+     * @return string[]
+     *
+     * @see https://datatracker.ietf.org/doc/html/rfc6749#section-3.3
+     */
+    private static function extractScopes(array $claims): array
+    {
+        foreach (self::SCOPE_CLAIMS as $claim) {
+            $scope = $claims[$claim] ?? null;
+            if (\is_array($scope)) {
+                $scope = implode(' ', array_filter($scope, \is_string(...)));
+            }
+            if (!\is_string($scope) || '' === trim($scope)) {
+                continue;
+            }
+
+            return array_values(array_unique(preg_split('/\s+/', trim($scope))));
+        }
+
+        return [];
     }
 
     /**

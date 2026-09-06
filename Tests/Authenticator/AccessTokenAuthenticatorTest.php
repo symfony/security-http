@@ -253,6 +253,48 @@ class AccessTokenAuthenticatorTest extends TestCase
         $this->assertSame('Bearer', $response->headers->get('WWW-Authenticate'));
     }
 
+    #[DataProvider('provideScopeClaims')]
+    public function testTheGrantedScopesAreExposedAsATokenAttribute(array $claims, array $expectedScopes)
+    {
+        $accessTokenHandler = $this->createStub(AccessTokenHandlerInterface::class);
+        $accessTokenHandler
+            ->method('getUserBadgeFrom')
+            ->willReturn(new UserBadge('john', static fn () => new InMemoryUser('john', null), $claims));
+
+        $authenticator = new AccessTokenAuthenticator($accessTokenHandler, new HeaderAccessTokenExtractor());
+        $passport = $authenticator->authenticate(Request::create('/test', server: ['HTTP_AUTHORIZATION' => 'Bearer VALID_ACCESS_TOKEN']));
+
+        $this->assertSame($expectedScopes, $authenticator->createToken($passport, 'main')->getAttribute(AccessTokenAuthenticator::SCOPE_ATTRIBUTE));
+    }
+
+    public static function provideScopeClaims(): iterable
+    {
+        yield 'the space-delimited "scope" claim of RFC 6749 §3.3' => [['scope' => 'openid profile:read'], ['openid', 'profile:read']];
+        yield 'a single scope' => [['scope' => 'openid'], ['openid']];
+        yield 'scopes separated by more than one space' => [['scope' => " openid \t profile:read "], ['openid', 'profile:read']];
+        yield 'a scope granted twice' => [['scope' => 'openid openid'], ['openid']];
+        yield 'the "scope" claim as a list' => [['scope' => ['openid', 'profile:read']], ['openid', 'profile:read']];
+        yield 'the "scp" claim some providers use instead' => [['scp' => ['openid', 'profile:read']], ['openid', 'profile:read']];
+        yield '"scope" wins over "scp"' => [['scope' => 'openid', 'scp' => ['profile:read']], ['openid']];
+        yield 'an empty "scope" falls back on "scp"' => [['scope' => '', 'scp' => 'profile:read'], ['profile:read']];
+        yield 'no scope claim at all' => [['sub' => 'john'], []];
+        yield 'a scope claim of an unexpected type' => [['scope' => 42], []];
+        yield 'a list holding values that are not scopes' => [['scope' => ['openid', 42, null]], ['openid']];
+    }
+
+    public function testTheScopeAttributeIsSetOnATokenBuiltFromABadgeWithoutAttributes()
+    {
+        $accessTokenHandler = $this->createStub(AccessTokenHandlerInterface::class);
+        $accessTokenHandler
+            ->method('getUserBadgeFrom')
+            ->willReturn(new UserBadge('john', static fn () => new InMemoryUser('john', null)));
+
+        $authenticator = new AccessTokenAuthenticator($accessTokenHandler, new HeaderAccessTokenExtractor());
+        $passport = $authenticator->authenticate(Request::create('/test', server: ['HTTP_AUTHORIZATION' => 'Bearer VALID_ACCESS_TOKEN']));
+
+        $this->assertSame([], $authenticator->createToken($passport, 'main')->getAttribute(AccessTokenAuthenticator::SCOPE_ATTRIBUTE));
+    }
+
     public function testUnsupportedReasons()
     {
         $authenticator = new AccessTokenAuthenticator($this->createStub(AccessTokenHandlerInterface::class), new HeaderAccessTokenExtractor());
