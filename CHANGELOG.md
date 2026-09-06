@@ -8,6 +8,8 @@ CHANGELOG
  * Expose the OAuth2 scopes an access token was granted as the `scope` token attribute, read from the `scope` or `scp` claim
  * Add `OAuth2ScopeVoter` to require scopes of the access token, all the ones an `OAUTH2_SCOPE(...)` attribute lists
  * Add `InsufficientScopeAccessDeniedHandler` to answer a denial caused by a missing scope with the RFC 6750 §3.1 challenge
+ * Add the `$audiences`, `$issuer`, `$claim`, `$clock` and `$allowedTimeDrift` arguments to `Oauth2TokenHandler`, which validates the `exp`, `nbf`, `iat`, `iss` and `aud` members of the introspection response against them
+ * Add `Oauth2TokenHandler::enableCache()` to cache the introspection responses of active tokens, never beyond their `exp`
  * Throw a 403 `Symfony\Component\Security\Http\Exception\InvalidCsrfTokenException` instead of the `Security\Core` one when the `#[IsCsrfTokenValid]` attribute fails, so the failure is no longer handled as an authentication failure
  * Add the deauthentication reason and the responsible user providers to `TokenDeauthenticatedEvent`
  * Add `LogoutUrlGenerator::getLogoutForm()` to build a form that logs the user out with a POST
