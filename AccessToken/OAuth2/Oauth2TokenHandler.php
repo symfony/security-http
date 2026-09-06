@@ -12,7 +12,6 @@
 namespace Symfony\Component\Security\Http\AccessToken\OAuth2;
 
 use Psr\Log\LoggerInterface;
-use Symfony\Component\Security\Core\Exception\AuthenticationException;
 use Symfony\Component\Security\Core\Exception\BadCredentialsException;
 use Symfony\Component\Security\Core\User\OAuth2User;
 use Symfony\Component\Security\Http\AccessToken\AccessTokenHandlerInterface;
@@ -23,6 +22,11 @@ use function Symfony\Component\String\u;
 
 /**
  * The token handler validates the token on the authorization server and the Introspection Endpoint.
+ *
+ * Anything the introspection request throws is an answer the resource server could not read, so it
+ * turns into the bad credentials the firewall reports as a 401: a server that is unreachable, that
+ * refuses the caller, or that answers something other than the JSON object RFC 7662 §2.2 defines
+ * says nothing about the token, and never that it is usable.
  *
  * @see https://tools.ietf.org/html/rfc7662
  *
@@ -59,9 +63,10 @@ final class Oauth2TokenHandler implements AccessTokenHandlerInterface
             }
 
             return new UserBadge($sub ?? $username, fn () => $this->createUser($claims), $claims);
-        } catch (AuthenticationException $e) {
+        } catch (\Exception $e) {
             $this->logger?->error('An error occurred on the authorization server.', [
                 'error' => $e->getMessage(),
+                'exception' => $e,
                 'trace' => $e->getTraceAsString(),
             ]);
 

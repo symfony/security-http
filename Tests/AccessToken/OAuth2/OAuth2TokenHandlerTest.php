@@ -11,15 +11,36 @@
 
 namespace Symfony\Component\Security\Http\Tests\AccessToken\OAuth2;
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
+use Symfony\Component\Security\Core\Exception\BadCredentialsException;
 use Symfony\Component\Security\Core\User\OAuth2User;
 use Symfony\Component\Security\Http\AccessToken\OAuth2\Oauth2TokenHandler;
 use Symfony\Component\Security\Http\Authenticator\Passport\Badge\UserBadge;
 
 class OAuth2TokenHandlerTest extends TestCase
 {
+    #[DataProvider('unreadableResponses')]
+    public function testTurnsAnErrorOfTheAuthorizationServerIntoBadCredentials(MockResponse $response)
+    {
+        $this->expectException(BadCredentialsException::class);
+        $this->expectExceptionMessage('Invalid credentials.');
+
+        (new Oauth2TokenHandler(new MockHttpClient([$response])))->getUserBadgeFrom('a-secret-token');
+    }
+
+    public static function unreadableResponses(): iterable
+    {
+        yield 'the caller is refused' => [new MockResponse('{"error":"invalid_client"}', ['http_code' => 401])];
+        yield 'the server is down' => [new MockResponse('', ['http_code' => 503])];
+        yield 'the server is unreachable' => [new MockResponse('', ['error' => 'Could not resolve host: authorization-server.example.com'])];
+        yield 'the body is not JSON' => [new MockResponse('<html>Bad Gateway</html>')];
+        yield 'the body is empty' => [new MockResponse('')];
+        yield 'the body is not an object' => [new MockResponse('"nope"')];
+    }
+
     public function testGetsUserIdentifierFromOAuth2ServerResponse()
     {
         $accessToken = 'a-secret-token';
