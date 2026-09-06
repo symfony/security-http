@@ -14,6 +14,10 @@ namespace Symfony\Component\Security\Http\Tests\AccessToken\Oidc;
 use Jose\Component\Core\AlgorithmManager;
 use Jose\Component\Core\JWK;
 use Jose\Component\Core\JWKSet;
+use Jose\Component\Encryption\Algorithm\ContentEncryption\A128CBCHS256;
+use Jose\Component\Encryption\Algorithm\KeyEncryption\Dir;
+use Jose\Component\Encryption\JWEBuilder;
+use Jose\Component\Encryption\Serializer\CompactSerializer as JweCompactSerializer;
 use Jose\Component\Signature\Algorithm\ES256;
 use Jose\Component\Signature\JWSBuilder;
 use Jose\Component\Signature\Serializer\CompactSerializer;
@@ -191,13 +195,150 @@ class OidcTokenHandlerTest extends TestCase
         ))->getUserBadgeFrom($token);
     }
 
-    private static function buildJWS(string $payload): string
+    #[DataProvider('getAtJwtTypes')]
+    public function testAcceptsTheTokenTypesOfTheAccessTokenProfile(string $type)
+    {
+        $token = self::buildJWS(json_encode(self::getValidClaims()), ['typ' => $type]);
+
+        $loggerMock = $this->createMock(LoggerInterface::class);
+        $loggerMock->expects($this->never())->method('error');
+
+        $userBadge = (new OidcTokenHandler(
+            new AlgorithmManager([new ES256()]),
+            self::getJWKSet(),
+            self::AUDIENCE,
+            ['https://www.example.com'],
+            'sub',
+            $loggerMock,
+        ))->getUserBadgeFrom($token);
+
+        $this->assertSame('e21bf182-1538-406e-8ccb-e25a17aba39f', $userBadge->getUserIdentifier());
+    }
+
+    public static function getAtJwtTypes(): iterable
+    {
+        yield 'short form' => ['at+jwt'];
+        yield 'media type form' => ['application/at+jwt'];
+        yield 'media types are case-insensitive' => ['AT+JWT'];
+    }
+
+    /**
+     * An ID token carries the client identifier in its "aud" claim, so an application whose
+     * configured audience is that same client identifier accepts it as an access token unless
+     * the token type is enforced, which is what RFC 9068 §4 asks the resource server to do.
+     */
+    #[DataProvider('getTokensRejectedByTheAtJwtTypeCheck')]
+    public function testRejectsTheTokensThatDoNotCarryTheAccessTokenType(array $header)
+    {
+        $token = self::buildJWS(json_encode(self::getValidClaims()), $header);
+
+        $loggerMock = $this->createMock(LoggerInterface::class);
+        $loggerMock->expects($this->once())->method('error');
+
+        $this->expectException(BadCredentialsException::class);
+        $this->expectExceptionMessage('Invalid credentials.');
+
+        (new OidcTokenHandler(
+            new AlgorithmManager([new ES256()]),
+            self::getJWKSet(),
+            self::AUDIENCE,
+            ['https://www.example.com'],
+            'sub',
+            $loggerMock,
+        ))->getUserBadgeFrom($token);
+    }
+
+    public static function getTokensRejectedByTheAtJwtTypeCheck(): iterable
+    {
+        yield 'an ID token' => [['typ' => 'JWT']];
+        yield 'no type at all' => [[]];
+        yield 'another profile' => [['typ' => 'logout+jwt']];
+        yield 'a non-string type' => [['typ' => 42]];
+    }
+
+    #[DataProvider('getTokensRejectedByTheAtJwtTypeCheck')]
+    public function testAcceptsAnyTokenTypeWhenTheCheckIsDisabled(array $header)
+    {
+        $token = self::buildJWS(json_encode(self::getValidClaims()), $header);
+
+        $loggerMock = $this->createMock(LoggerInterface::class);
+        $loggerMock->expects($this->never())->method('error');
+
+        $userBadge = (new OidcTokenHandler(
+            new AlgorithmManager([new ES256()]),
+            self::getJWKSet(),
+            self::AUDIENCE,
+            ['https://www.example.com'],
+            'sub',
+            $loggerMock,
+            enforceAtJwtType: false,
+        ))->getUserBadgeFrom($token);
+
+        $this->assertSame('e21bf182-1538-406e-8ccb-e25a17aba39f', $userBadge->getUserIdentifier());
+    }
+
+    /**
+     * The type sits in the signed token, so the check must run after decryption.
+     * Reading it from the outer JWE header rejects every encrypted token instead.
+     */
+    #[DataProvider('getEncryptedTokenTypes')]
+    public function testEnforcesTheAccessTokenTypeInsideAnEncryptedToken(string $type, bool $accepted)
+    {
+        $encryptionKeyset = new JWKSet([new JWK(['kty' => 'oct', 'k' => 'V0hBVCBBIExPVkVMWSBLRVkgT0YgMzIgQllURVMh'])]);
+        $encryptionAlgorithms = new AlgorithmManager([new Dir(), new A128CBCHS256()]);
+
+        $jwe = (new JWEBuilder($encryptionAlgorithms))
+            ->withPayload(self::buildJWS(json_encode(self::getValidClaims()), ['typ' => $type]))
+            ->withSharedProtectedHeader(['alg' => 'dir', 'enc' => 'A128CBC-HS256', 'cty' => 'JWT'])
+            ->addRecipient($encryptionKeyset->get(0))
+            ->build();
+
+        $handler = new OidcTokenHandler(
+            new AlgorithmManager([new ES256()]),
+            self::getJWKSet(),
+            self::AUDIENCE,
+            ['https://www.example.com'],
+            'sub',
+            enforceAtJwtType: true,
+        );
+        $handler->enableJweSupport($encryptionKeyset, $encryptionAlgorithms, true);
+
+        if (!$accepted) {
+            $this->expectException(BadCredentialsException::class);
+        }
+
+        $userBadge = $handler->getUserBadgeFrom((new JweCompactSerializer())->serialize($jwe, 0));
+
+        $this->assertSame('e21bf182-1538-406e-8ccb-e25a17aba39f', $userBadge->getUserIdentifier());
+    }
+
+    public static function getEncryptedTokenTypes(): iterable
+    {
+        yield 'an access token' => ['at+jwt', true];
+        yield 'an ID token' => ['JWT', false];
+    }
+
+    private static function getValidClaims(): array
+    {
+        $time = time();
+
+        return [
+            'iat' => $time,
+            'nbf' => $time,
+            'exp' => $time + 3600,
+            'iss' => 'https://www.example.com',
+            'aud' => self::AUDIENCE,
+            'sub' => 'e21bf182-1538-406e-8ccb-e25a17aba39f',
+        ];
+    }
+
+    private static function buildJWS(string $payload, array $header = ['typ' => 'at+jwt']): string
     {
         return (new CompactSerializer())->serialize((new JWSBuilder(new AlgorithmManager([
             new ES256(),
         ])))
             ->withPayload($payload)
-            ->addSignature(self::getJWK(), ['alg' => 'ES256'])
+            ->addSignature(self::getJWK(), $header + ['alg' => 'ES256'])
             ->build()
         );
     }
@@ -428,7 +569,7 @@ class OidcTokenHandlerTest extends TestCase
             new ES256(),
         ])))
             ->withPayload($payload)
-            ->addSignature($jwk, ['alg' => 'ES256'])
+            ->addSignature($jwk, ['alg' => 'ES256', 'typ' => 'at+jwt'])
             ->build()
         );
     }
