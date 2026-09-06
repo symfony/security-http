@@ -49,6 +49,22 @@ class OidcTokenGeneratorTest extends TestCase
         ], $badge->getAttributes());
     }
 
+    public function testGeneratesTokensCarryingTheAccessTokenType()
+    {
+        $algorithmManager = new AlgorithmManager([new ES256()]);
+        $audience = 'Symfony OIDC';
+        $issuers = ['https://www.example.com'];
+
+        $generator = new OidcTokenGenerator($algorithmManager, $this->getJWKSet(), $audience, $issuers);
+        $handler = new OidcTokenHandler($algorithmManager, $this->getJWKSet(), $audience, $issuers, 'sub', enforceAtJwtType: true);
+
+        $token = $generator->generate('john_doe', null, null, 3600);
+        $header = json_decode(base64_decode(strtr(explode('.', $token)[0], '-_', '+/')), true);
+
+        $this->assertSame(['alg' => 'ES256', 'typ' => 'at+jwt'], $header);
+        $this->assertSame('john_doe', $handler->getUserBadgeFrom($token)->getUserIdentifier());
+    }
+
     #[DataProvider('provideGenerateWithInvalid')]
     public function testGenerateWithInvalid(?string $algorithm, ?string $issuer, ?int $ttl, ?int $notBefore, string $expectedMessage)
     {

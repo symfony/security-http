@@ -61,7 +61,7 @@ class OidcTokenGenerator
 
         $jws = $jwsBuilder
             ->withPayload(json_encode($payload, flags: \JSON_THROW_ON_ERROR))
-            ->addSignature($jwk, ['alg' => $algorithm->name()])
+            ->addSignature($jwk, ['alg' => $algorithm->name(), 'typ' => 'at+jwt']) // https://datatracker.ietf.org/doc/html/rfc9068#section-2.1
             ->build();
 
         $serializer = new CompactSerializer();

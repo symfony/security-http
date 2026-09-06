@@ -45,6 +45,12 @@ use Symfony\Contracts\Service\ResetInterface;
 final class OidcTokenHandler implements AccessTokenHandlerInterface, ResetInterface
 {
     use OidcTrait;
+
+    /**
+     * The "typ" header values RFC 9068 §4 accepts for a JWT access token.
+     */
+    private const AT_JWT_TYPES = ['at+jwt', 'application/at+jwt'];
+
     private ?JWKSet $decryptionKeyset = null;
     private ?AlgorithmManager $decryptionAlgorithms = null;
     private bool $enforceEncryption = false;
@@ -63,6 +69,13 @@ final class OidcTokenHandler implements AccessTokenHandlerInterface, ResetInterf
      */
     private array $discoveries = [];
 
+    /**
+     * @param bool $enforceAtJwtType Whether the "typ" header of the token must be "at+jwt" or "application/at+jwt",
+     *                               which RFC 9068 §4 requires from a JWT access token. This is what tells an access
+     *                               token apart from the ID token the provider issues for the same audience, which
+     *                               would otherwise pass every other check. Turn it off only for providers that do
+     *                               not follow the profile and keep emitting a plain "JWT" type.
+     */
     public function __construct(
         private AlgorithmManager $signatureAlgorithm,
         private ?JWKSet $signatureKeyset,
@@ -72,6 +85,7 @@ final class OidcTokenHandler implements AccessTokenHandlerInterface, ResetInterf
         private ?LoggerInterface $logger = null,
         private ClockInterface $clock = new Clock(),
         private int $allowedTimeDrift = 0,
+        private bool $enforceAtJwtType = true,
     ) {
     }
 
@@ -229,13 +243,18 @@ final class OidcTokenHandler implements AccessTokenHandlerInterface, ResetInterf
             throw new InvalidSignatureException();
         }
 
-        $headerCheckerManager = new Checker\HeaderCheckerManager([
-            new Checker\AlgorithmChecker($this->signatureAlgorithm->list()),
-        ], [
+        $headerCheckers = [new Checker\AlgorithmChecker($this->signatureAlgorithm->list())];
+        $mandatoryHeaders = [];
+        if ($this->enforceAtJwtType) {
+            $headerCheckers[] = new Checker\CallableChecker('typ', static fn ($value) => \is_string($value) && \in_array(strtolower($value), self::AT_JWT_TYPES, true));
+            $mandatoryHeaders[] = 'typ';
+        }
+
+        $headerCheckerManager = new Checker\HeaderCheckerManager($headerCheckers, [
             new JWSTokenSupport(),
         ]);
         // if this check fails, an InvalidHeaderException is thrown
-        $headerCheckerManager->check($jws, 0);
+        $headerCheckerManager->check($jws, 0, $mandatoryHeaders);
 
         return json_decode($jws->getPayload(), true);
     }
