@@ -28,6 +28,8 @@ CHANGELOG
  * Add the `$enforceAtJwtType` argument to `OidcTokenHandler` to reject the tokens whose `typ` header is not the `at+jwt` RFC 9068 requires from an access token
  * Deprecate not passing the `$enforceAtJwtType` argument to `OidcTokenHandler`; it defaults to `false` in 8.2 and will default to `true` in 9.0
  * Make `OidcTokenGenerator` emit the `at+jwt` type header RFC 9068 requires from an access token
+ * Add the `$resourceMetadataUri` argument to `AccessTokenAuthenticator`, advertised in the `resource_metadata` parameter of the `WWW-Authenticate` header (RFC 9728)
+ * Add `FallbackAuthenticationEntryPointInterface` for an entry point that only stands in for a firewall declaring no other one, and make `AccessTokenAuthenticator` one, so that a request carrying no access token gets the RFC 6750 challenge instead of a bare 401
 
 8.1
 ---

@@ -31,6 +31,7 @@ use Symfony\Component\Security\Core\Exception\LogoutException;
 use Symfony\Component\Security\Http\Authorization\AccessDeniedHandlerInterface;
 use Symfony\Component\Security\Http\EntryPoint\AuthenticationEntryPointInterface;
 use Symfony\Component\Security\Http\EntryPoint\Exception\NotAnEntryPointException;
+use Symfony\Component\Security\Http\EntryPoint\FallbackAuthenticationEntryPointInterface;
 use Symfony\Component\Security\Http\HttpUtils;
 use Symfony\Component\Security\Http\SecurityRequestAttributes;
 use Symfony\Component\Security\Http\Util\TargetPathTrait;
@@ -181,7 +182,9 @@ class ExceptionListener
 
         $this->logger?->debug('Calling Authentication entry point.', ['entry_point' => $this->authenticationEntryPoint]);
 
-        if (!$this->stateless) {
+        // an entry point that only stands in has no authentication to start, so there is
+        // nothing for the user to come back to and no reason to start a session for it
+        if (!$this->stateless && !$this->authenticationEntryPoint instanceof FallbackAuthenticationEntryPointInterface) {
             $this->setTargetPath($request);
         }
 

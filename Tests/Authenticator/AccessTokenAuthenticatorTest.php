@@ -194,6 +194,65 @@ class AccessTokenAuthenticatorTest extends TestCase
         ];
     }
 
+    public function testAuthenticateHeaderOfTheFailureResponse()
+    {
+        $authenticator = new AccessTokenAuthenticator(
+            $this->createStub(AccessTokenHandlerInterface::class),
+            new HeaderAccessTokenExtractor(),
+            realm: 'My API',
+        );
+
+        $response = $authenticator->onAuthenticationFailure(Request::create('/test'), new BadCredentialsException());
+
+        $this->assertSame(401, $response->getStatusCode());
+        $this->assertSame('Bearer realm="My API",error="invalid_token",error_description="Invalid credentials."', $response->headers->get('WWW-Authenticate'));
+    }
+
+    #[DataProvider('provideResourceMetadataUris')]
+    public function testAuthenticateHeaderAdvertisesTheResourceMetadata(?string $resourceMetadataUri, string $expected)
+    {
+        $authenticator = new AccessTokenAuthenticator(
+            $this->createStub(AccessTokenHandlerInterface::class),
+            new HeaderAccessTokenExtractor(),
+            resourceMetadataUri: $resourceMetadataUri,
+        );
+
+        $response = $authenticator->onAuthenticationFailure(Request::create('https://api.example.com/test'), new BadCredentialsException());
+
+        $this->assertSame($expected, $response->headers->get('WWW-Authenticate'));
+    }
+
+    public static function provideResourceMetadataUris(): iterable
+    {
+        yield 'none configured' => [null, 'Bearer error="invalid_token",error_description="Invalid credentials."'];
+        yield 'a path is resolved against the request' => ['/.well-known/oauth-protected-resource', 'Bearer error="invalid_token",error_description="Invalid credentials.",resource_metadata="https://api.example.com/.well-known/oauth-protected-resource"'];
+        yield 'an absolute URL is advertised as is' => ['https://other.example.com/.well-known/oauth-protected-resource/api', 'Bearer error="invalid_token",error_description="Invalid credentials.",resource_metadata="https://other.example.com/.well-known/oauth-protected-resource/api"'];
+    }
+
+    public function testTheChallengeOfARequestCarryingNoTokenHoldsNoErrorCode()
+    {
+        $authenticator = new AccessTokenAuthenticator(
+            $this->createStub(AccessTokenHandlerInterface::class),
+            new HeaderAccessTokenExtractor(),
+            realm: 'My API',
+            resourceMetadataUri: '/.well-known/oauth-protected-resource',
+        );
+
+        $response = $authenticator->start(Request::create('https://api.example.com/foo'));
+
+        $this->assertSame(401, $response->getStatusCode());
+        $this->assertSame('Bearer realm="My API",resource_metadata="https://api.example.com/.well-known/oauth-protected-resource"', $response->headers->get('WWW-Authenticate'));
+    }
+
+    public function testTheChallengeOfAFirewallThatPinsNothingIsTheBareScheme()
+    {
+        $authenticator = new AccessTokenAuthenticator($this->createStub(AccessTokenHandlerInterface::class), new HeaderAccessTokenExtractor());
+
+        $response = $authenticator->start(Request::create('https://api.example.com/foo'));
+
+        $this->assertSame('Bearer', $response->headers->get('WWW-Authenticate'));
+    }
+
     public function testUnsupportedReasons()
     {
         $authenticator = new AccessTokenAuthenticator($this->createStub(AccessTokenHandlerInterface::class), new HeaderAccessTokenExtractor());
