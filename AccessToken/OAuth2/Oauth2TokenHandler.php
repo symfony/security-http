@@ -12,7 +12,6 @@
 namespace Symfony\Component\Security\Http\AccessToken\OAuth2;
 
 use Psr\Log\LoggerInterface;
-use Symfony\Component\Security\Core\Exception\AuthenticationException;
 use Symfony\Component\Security\Core\Exception\BadCredentialsException;
 use Symfony\Component\Security\Core\User\OAuth2User;
 use Symfony\Component\Security\Http\AccessToken\AccessTokenHandlerInterface;
@@ -23,6 +22,11 @@ use function Symfony\Component\String\u;
 
 /**
  * The token handler validates the token on the authorization server and the Introspection Endpoint.
+ *
+ * Anything the introspection request throws is an answer the resource server could not read, so it
+ * turns into the bad credentials the firewall reports as a 401: a server that is unreachable, that
+ * refuses the caller, or that answers something other than the JSON object RFC 7662 §2.2 defines
+ * says nothing about the token, and never that it is usable.
  *
  * @see https://tools.ietf.org/html/rfc7662
  *
@@ -36,6 +40,11 @@ final class Oauth2TokenHandler implements AccessTokenHandlerInterface
     ) {
     }
 
+    /**
+     * RFC 7662 §2.2 defines "active" as a boolean, and the introspection response is JSON, so the
+     * member is compared to true: nothing else states that the token can be used, the string
+     * "false" an authorization server may answer with least of all.
+     */
     public function getUserBadgeFrom(string $accessToken): UserBadge
     {
         try {
@@ -53,15 +62,15 @@ final class Oauth2TokenHandler implements AccessTokenHandlerInterface
             if (!$sub && !$username) {
                 throw new BadCredentialsException('"sub" and "username" claims not found on the authorization server response. At least one is required.');
             }
-            $active = $claims['active'] ?? false;
-            if (!$active) {
+            if (true !== ($claims['active'] ?? false)) {
                 throw new BadCredentialsException('The claim "active" was not found on the authorization server response or is set to false.');
             }
 
             return new UserBadge($sub ?? $username, fn () => $this->createUser($claims), $claims);
-        } catch (AuthenticationException $e) {
+        } catch (\Exception $e) {
             $this->logger?->error('An error occurred on the authorization server.', [
                 'error' => $e->getMessage(),
+                'exception' => $e,
                 'trace' => $e->getTraceAsString(),
             ]);
 
