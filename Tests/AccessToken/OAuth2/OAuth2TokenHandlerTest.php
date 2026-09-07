@@ -41,6 +41,33 @@ class OAuth2TokenHandlerTest extends TestCase
         yield 'the body is not an object' => [new MockResponse('"nope"')];
     }
 
+    #[DataProvider('inactiveResponses')]
+    public function testRejectsATokenTheServerDoesNotReportAsActive(array $claims)
+    {
+        $client = new MockHttpClient([new MockResponse(json_encode($claims, \JSON_THROW_ON_ERROR))]);
+
+        $this->expectException(BadCredentialsException::class);
+        $this->expectExceptionMessage('Invalid credentials.');
+
+        (new Oauth2TokenHandler($client))->getUserBadgeFrom('a-secret-token');
+    }
+
+    /**
+     * Everything but the boolean the specification defines, which is everything the truthy reading
+     * of "active" used to honor, the very "false" of a server not serializing it as a JSON boolean
+     * included.
+     */
+    public static function inactiveResponses(): iterable
+    {
+        yield 'inactive' => [['active' => false, 'sub' => 'jdoe']];
+        yield 'missing' => [['sub' => 'jdoe']];
+        yield 'stringly typed false' => [['active' => 'false', 'sub' => 'jdoe']];
+        yield 'stringly typed true' => [['active' => 'true', 'sub' => 'jdoe']];
+        yield 'the number one' => [['active' => 1, 'sub' => 'jdoe']];
+        yield 'no' => [['active' => 'no', 'sub' => 'jdoe']];
+        yield 'not a boolean at all' => [['active' => 'bogus', 'sub' => 'jdoe']];
+    }
+
     public function testGetsUserIdentifierFromOAuth2ServerResponse()
     {
         $accessToken = 'a-secret-token';

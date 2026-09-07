@@ -40,6 +40,11 @@ final class Oauth2TokenHandler implements AccessTokenHandlerInterface
     ) {
     }
 
+    /**
+     * RFC 7662 §2.2 defines "active" as a boolean, and the introspection response is JSON, so the
+     * member is compared to true: nothing else states that the token can be used, the string
+     * "false" an authorization server may answer with least of all.
+     */
     public function getUserBadgeFrom(string $accessToken): UserBadge
     {
         try {
@@ -57,8 +62,7 @@ final class Oauth2TokenHandler implements AccessTokenHandlerInterface
             if (!$sub && !$username) {
                 throw new BadCredentialsException('"sub" and "username" claims not found on the authorization server response. At least one is required.');
             }
-            $active = $claims['active'] ?? false;
-            if (!$active) {
+            if (true !== ($claims['active'] ?? false)) {
                 throw new BadCredentialsException('The claim "active" was not found on the authorization server response or is set to false.');
             }
 
