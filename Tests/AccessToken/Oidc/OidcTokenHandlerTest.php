@@ -28,6 +28,7 @@ use PHPUnit\Framework\Attributes\RequiresPhpExtension;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
+use Symfony\Component\Clock\Clock;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\JsonMockResponse;
 use Symfony\Component\HttpClient\Response\MockResponse;
@@ -68,7 +69,9 @@ class OidcTokenHandlerTest extends TestCase
             ['https://www.example.com'],
             $claim,
             $loggerMock,
-            enforceAtJwtType: true,
+            new Clock(),
+            0,
+            true,
         ))->getUserBadgeFrom($token);
         $actualUser = $userBadge->getUserLoader()();
 
@@ -103,7 +106,9 @@ class OidcTokenHandlerTest extends TestCase
             ['https://www.example.com'],
             'sub',
             $loggerMock,
-            enforceAtJwtType: true,
+            new Clock(),
+            0,
+            true,
         ))->getUserBadgeFrom($token);
     }
 
@@ -196,7 +201,9 @@ class OidcTokenHandlerTest extends TestCase
             ['https://www.example.com'],
             'email',
             $loggerMock,
-            enforceAtJwtType: true,
+            new Clock(),
+            0,
+            true,
         ))->getUserBadgeFrom($token);
     }
 
@@ -215,7 +222,9 @@ class OidcTokenHandlerTest extends TestCase
             ['https://www.example.com'],
             'sub',
             $loggerMock,
-            enforceAtJwtType: true,
+            new Clock(),
+            0,
+            true,
         ))->getUserBadgeFrom($token);
 
         $this->assertSame('e21bf182-1538-406e-8ccb-e25a17aba39f', $userBadge->getUserIdentifier());
@@ -251,7 +260,9 @@ class OidcTokenHandlerTest extends TestCase
             ['https://www.example.com'],
             'sub',
             $loggerMock,
-            enforceAtJwtType: true,
+            new Clock(),
+            0,
+            true,
         ))->getUserBadgeFrom($token);
     }
 
@@ -278,7 +289,9 @@ class OidcTokenHandlerTest extends TestCase
             ['https://www.example.com'],
             'sub',
             $loggerMock,
-            enforceAtJwtType: false,
+            new Clock(),
+            0,
+            false,
         ))->getUserBadgeFrom($token);
 
         $this->assertSame('e21bf182-1538-406e-8ccb-e25a17aba39f', $userBadge->getUserIdentifier());
@@ -330,7 +343,10 @@ class OidcTokenHandlerTest extends TestCase
             self::AUDIENCE,
             ['https://www.example.com'],
             'sub',
-            enforceAtJwtType: true,
+            null,
+            new Clock(),
+            0,
+            true,
         );
         $handler->enableJweSupport($encryptionKeyset, $encryptionAlgorithms, true);
 
@@ -436,7 +452,11 @@ class OidcTokenHandlerTest extends TestCase
             null,
             self::AUDIENCE,
             ['https://www.example.com'],
-            enforceAtJwtType: true,
+            'sub',
+            null,
+            new Clock(),
+            0,
+            true,
         );
         $handler->enableDiscovery($cache, $httpClient, 'oidc_config');
 
@@ -461,7 +481,11 @@ class OidcTokenHandlerTest extends TestCase
             null,
             self::AUDIENCE,
             ['https://www.example.com'],
-            enforceAtJwtType: true,
+            'sub',
+            null,
+            new Clock(),
+            0,
+            true,
         );
         $handler->enableDiscovery(new ArrayAdapter(), $httpClient, 'oidc_config');
 
@@ -485,7 +509,11 @@ class OidcTokenHandlerTest extends TestCase
             null,
             self::AUDIENCE,
             ['https://www.example.com'],
-            enforceAtJwtType: true,
+            'sub',
+            null,
+            new Clock(),
+            0,
+            true,
         );
         $handler->enableDiscovery(new ArrayAdapter(), $httpClient, 'oidc_config');
 
@@ -522,7 +550,11 @@ class OidcTokenHandlerTest extends TestCase
             null,
             self::AUDIENCE,
             ['https://www.example.com'],
-            enforceAtJwtType: true,
+            'sub',
+            null,
+            new Clock(),
+            0,
+            true,
         );
         $handler->enableDiscovery($cache, [$httpClient1, $httpClient2], 'oidc_config');
 
@@ -577,7 +609,7 @@ class OidcTokenHandlerTest extends TestCase
             }, \sprintf('https://provider%d.example.com/', $provider));
         }
 
-        $handler = new OidcTokenHandler(new AlgorithmManager([new ES256()]), null, self::AUDIENCE, ['https://www.example.com'], enforceAtJwtType: true);
+        $handler = new OidcTokenHandler(new AlgorithmManager([new ES256()]), null, self::AUDIENCE, ['https://www.example.com'], 'sub', null, new Clock(), 0, true);
         $handler->enableDiscovery(new ArrayAdapter(), $httpClients, 'oidc_config');
 
         $time = time();
@@ -641,7 +673,11 @@ class OidcTokenHandlerTest extends TestCase
             null,
             self::AUDIENCE,
             ['https://www.example.com'],
-            enforceAtJwtType: true,
+            'sub',
+            null,
+            new Clock(),
+            0,
+            true,
         );
         $handler->enableDiscovery($cache, $httpClient, 'oidc_ttl_cc');
         $this->assertSame('user-cache-control', $handler->getUserBadgeFrom($token)->getUserIdentifier());
@@ -677,7 +713,7 @@ class OidcTokenHandlerTest extends TestCase
         ]));
 
         $cache = new ArrayAdapter();
-        $handler = new OidcTokenHandler(new AlgorithmManager([new ES256()]), null, self::AUDIENCE, ['https://www.example.com'], enforceAtJwtType: true);
+        $handler = new OidcTokenHandler(new AlgorithmManager([new ES256()]), null, self::AUDIENCE, ['https://www.example.com'], 'sub', null, new Clock(), 0, true);
         $handler->enableDiscovery($cache, $httpClient, 'oidc_config');
 
         $handler->getUserBadgeFrom($token);
@@ -728,7 +764,11 @@ class OidcTokenHandlerTest extends TestCase
             null,
             self::AUDIENCE,
             ['https://www.example.com'],
-            enforceAtJwtType: true,
+            'sub',
+            null,
+            new Clock(),
+            0,
+            true,
         );
         $handler->enableDiscovery($cache, $httpClient, 'oidc_ttl_expires');
         $this->assertSame('user-expires', $handler->getUserBadgeFrom($token)->getUserIdentifier());
@@ -745,7 +785,11 @@ class OidcTokenHandlerTest extends TestCase
             null,
             self::AUDIENCE,
             ['https://www.example.com'],
-            enforceAtJwtType: true,
+            'sub',
+            null,
+            new Clock(),
+            0,
+            true,
         );
 
         $handler->enableDiscovery($cache, [], 'oidc_empty_clients');
@@ -772,7 +816,11 @@ class OidcTokenHandlerTest extends TestCase
             null,
             self::AUDIENCE,
             ['https://www.example.com'],
-            enforceAtJwtType: true,
+            'sub',
+            null,
+            new Clock(),
+            0,
+            true,
         );
         $handler->enableDiscovery($cache, $httpClient, 'oidc_redirected_discovery');
 
@@ -801,7 +849,11 @@ class OidcTokenHandlerTest extends TestCase
             null,
             self::AUDIENCE,
             ['https://www.example.com'],
-            enforceAtJwtType: true,
+            'sub',
+            null,
+            new Clock(),
+            0,
+            true,
         );
         $handler->enableDiscovery($cache, $httpClient, 'oidc_insecure_jwks_uri');
 
@@ -830,7 +882,11 @@ class OidcTokenHandlerTest extends TestCase
             null,
             self::AUDIENCE,
             ['http://www.example.com'],
-            enforceAtJwtType: true,
+            'sub',
+            null,
+            new Clock(),
+            0,
+            true,
         );
         $handler->enableDiscovery($cache, $httpClient, 'oidc_http_issuer');
 
@@ -863,7 +919,11 @@ class OidcTokenHandlerTest extends TestCase
             null,
             self::AUDIENCE,
             ['https://www.example.com'],
-            enforceAtJwtType: true,
+            'sub',
+            null,
+            new Clock(),
+            0,
+            true,
         );
         $handler->enableDiscovery($cache, $httpClient, 'oidc_missing_jwks_uri');
 
@@ -889,9 +949,13 @@ class OidcTokenHandlerTest extends TestCase
             null,
             self::AUDIENCE,
             ['https://www.example.com'],
-            enforceAtJwtType: true,
+            'sub',
+            null,
+            new Clock(),
+            0,
+            true,
         );
-        $handler->enableDiscovery($cache, $httpClient, 'oidc_non_sig_keys', enforceKeyUsageVerification: false);
+        $handler->enableDiscovery($cache, $httpClient, 'oidc_non_sig_keys', false);
 
         $item = $this->createMock(ItemInterface::class);
         $item->expects($this->never())->method('expiresAfter');
@@ -918,9 +982,13 @@ class OidcTokenHandlerTest extends TestCase
             null,
             self::AUDIENCE,
             ['https://www.example.com'],
-            enforceAtJwtType: true,
+            'sub',
+            null,
+            new Clock(),
+            0,
+            true,
         );
-        $handler->enableDiscovery($cache, $httpClient, 'oidc_enc_key_ops', enforceKeyUsageVerification: false);
+        $handler->enableDiscovery($cache, $httpClient, 'oidc_enc_key_ops', false);
 
         $item = $this->createStub(ItemInterface::class);
         $keys = $handler->computeDiscoveryKeys($item);
@@ -955,9 +1023,13 @@ class OidcTokenHandlerTest extends TestCase
             null,
             self::AUDIENCE,
             ['https://www.example.com'],
-            enforceAtJwtType: true,
+            'sub',
+            null,
+            new Clock(),
+            0,
+            true,
         );
-        $handler->enableDiscovery($cache, $httpClient, 'oidc_no_use', enforceKeyUsageVerification: false);
+        $handler->enableDiscovery($cache, $httpClient, 'oidc_no_use', false);
 
         $userBadge = $handler->getUserBadgeFrom($token);
 
@@ -983,9 +1055,13 @@ class OidcTokenHandlerTest extends TestCase
             null,
             self::AUDIENCE,
             ['https://www.example.com'],
-            enforceAtJwtType: true,
+            'sub',
+            null,
+            new Clock(),
+            0,
+            true,
         );
-        $handler->enableDiscovery($cache, $httpClient, 'oidc_enforced', enforceKeyUsageVerification: true);
+        $handler->enableDiscovery($cache, $httpClient, 'oidc_enforced', true);
 
         $item = $this->createMock(ItemInterface::class);
         $item->expects($this->never())->method('expiresAfter');
@@ -1010,16 +1086,20 @@ class OidcTokenHandlerTest extends TestCase
             null,
             self::AUDIENCE,
             ['https://www.example.com'],
-            enforceAtJwtType: true,
+            'sub',
+            null,
+            new Clock(),
+            0,
+            true,
         );
-        $handler->enableDiscovery($cache, $httpClient, 'oidc_enforced_ops', enforceKeyUsageVerification: true);
+        $handler->enableDiscovery($cache, $httpClient, 'oidc_enforced_ops', true);
         $item = $this->createStub(ItemInterface::class);
         $keys = $handler->computeDiscoveryKeys($item);
         $this->assertCount(1, $keys);
         $this->assertSame(['sign'], $keys[0]['key_ops']);
     }
 
-    public function testTokenWithFutureIatIsRejectedByDefault()
+    public function testTokenWithFutureIatIsRejectedWithoutAllowedTimeDrift()
     {
         $time = time();
         $claims = [
@@ -1045,7 +1125,9 @@ class OidcTokenHandlerTest extends TestCase
             ['https://www.example.com'],
             'sub',
             $loggerMock,
-            enforceAtJwtType: true,
+            new Clock(),
+            0,
+            true,
         ))->getUserBadgeFrom($token);
     }
 
@@ -1072,8 +1154,9 @@ class OidcTokenHandlerTest extends TestCase
             ['https://www.example.com'],
             'sub',
             $loggerMock,
-            allowedTimeDrift: 5,
-            enforceAtJwtType: true,
+            new Clock(),
+            5,
+            true,
         ))->getUserBadgeFrom($token);
 
         $this->assertInstanceOf(UserBadge::class, $userBadge);
@@ -1106,8 +1189,9 @@ class OidcTokenHandlerTest extends TestCase
             ['https://www.example.com'],
             'sub',
             $loggerMock,
-            allowedTimeDrift: 5,
-            enforceAtJwtType: true,
+            new Clock(),
+            5,
+            true,
         ))->getUserBadgeFrom($token);
     }
 }

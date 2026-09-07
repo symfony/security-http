@@ -19,6 +19,7 @@ use Jose\Component\Signature\Algorithm\ES512;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\RequiresPhpExtension;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Clock\Clock;
 use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Security\Http\AccessToken\Oidc\OidcTokenGenerator;
 use Symfony\Component\Security\Http\AccessToken\Oidc\OidcTokenHandler;
@@ -34,7 +35,7 @@ class OidcTokenGeneratorTest extends TestCase
         $clock = new MockClock('1998-07-12T22:45:00+02:00');
 
         $generator = new OidcTokenGenerator($algorithmManager, $this->getJWKSet(), $audience, $issuers, 'sub', $clock);
-        $handler = new OidcTokenHandler($algorithmManager, $this->getJWKSet(), $audience, $issuers, 'sub', null, $clock, enforceAtJwtType: true);
+        $handler = new OidcTokenHandler($algorithmManager, $this->getJWKSet(), $audience, $issuers, 'sub', null, $clock, 0, true);
 
         $token = $generator->generate('john_doe', null, null, 3600);
 
@@ -56,7 +57,7 @@ class OidcTokenGeneratorTest extends TestCase
         $issuers = ['https://www.example.com'];
 
         $generator = new OidcTokenGenerator($algorithmManager, $this->getJWKSet(), $audience, $issuers);
-        $handler = new OidcTokenHandler($algorithmManager, $this->getJWKSet(), $audience, $issuers, 'sub', enforceAtJwtType: true);
+        $handler = new OidcTokenHandler($algorithmManager, $this->getJWKSet(), $audience, $issuers, 'sub', null, new Clock(), 0, true);
 
         $token = $generator->generate('john_doe', null, null, 3600);
         $header = json_decode(base64_decode(strtr(explode('.', $token)[0], '-_', '+/')), true);
