@@ -25,7 +25,9 @@ use Symfony\Component\Clock\Clock;
 use Symfony\Component\Security\Core\Exception\BadCredentialsException;
 use Symfony\Component\Security\Core\User\OAuth2User;
 use Symfony\Component\Security\Http\AccessToken\AccessTokenHandlerInterface;
+use Symfony\Component\Security\Http\Authenticator\Oidc\OidcJwks;
 use Symfony\Component\Security\Http\Authenticator\Passport\Badge\UserBadge;
+use Symfony\Component\Security\Http\Oidc\OidcDiscovery;
 use Symfony\Contracts\Cache\CacheInterface;
 use Symfony\Contracts\Cache\ItemInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
@@ -70,6 +72,11 @@ final class Oauth2TokenHandler implements AccessTokenHandlerInterface
     private const JWT_RESPONSE_MEDIA_TYPE = 'application/token-introspection+jwt';
     private const JWT_RESPONSE_TYPES = ['token-introspection+jwt', 'application/token-introspection+jwt'];
 
+    /**
+     * RFC 8414 §3: the well-known path of the OAuth 2.0 authorization server metadata.
+     */
+    private const METADATA_PATH = '/.well-known/oauth-authorization-server';
+
     private ?CacheInterface $cache = null;
     private string $cacheKeyPrefix = '';
     private int $cacheTtl = 0;
@@ -77,6 +84,10 @@ final class Oauth2TokenHandler implements AccessTokenHandlerInterface
     private ?AlgorithmManager $signatureAlgorithms = null;
     private ?JWKSet $signatureKeyset = null;
     private bool $enforceSignedResponse = true;
+    private ?OidcDiscovery $metadata = null;
+    private ?CacheInterface $metadataCache = null;
+    private ?string $metadataCacheKey = null;
+    private ?HttpClientInterface $metadataClient = null;
 
     /**
      * @param HttpClientInterface $client           The client the introspection endpoint is reached with, whose
@@ -132,11 +143,47 @@ final class Oauth2TokenHandler implements AccessTokenHandlerInterface
      *
      * @param bool $enforce Whether a plain JSON response must be refused once the authorization server is expected to sign the introspection response
      */
-    public function enableSignedResponse(AlgorithmManager $algorithms, JWKSet $keyset, bool $enforce = true): void
+    public function enableSignedResponse(AlgorithmManager $algorithms, ?JWKSet $keyset, bool $enforce = true): void
     {
         $this->signatureAlgorithms = $algorithms;
         $this->signatureKeyset = $keyset;
         $this->enforceSignedResponse = $enforce;
+    }
+
+    /**
+     * Reads the keys the introspection response is verified against from the authorization server metadata.
+     *
+     * RFC 8414 §3 builds the metadata URL by inserting the well-known path between the host and the
+     * path of the issuer identifier, where OIDC Discovery 1.0 appends it, so the URL is built here
+     * and handed to {@see OidcDiscovery} already absolute. The document is the authority for the
+     * "jwks_uri" only: which algorithms this resource server accepts stays its own decision, so that
+     * an authorization server cannot widen it by announcing more.
+     */
+    public function enableSignedResponseDiscovery(CacheInterface $cache, HttpClientInterface $client, string $cacheKey): void
+    {
+        if (null === $this->issuer) {
+            throw new \LogicException('The "issuer" of the authorization server is required to read its metadata, since RFC 8414 §3 derives the metadata URL from it.');
+        }
+
+        $this->metadataCache = $cache;
+        $this->metadataClient = $client;
+        $this->metadataCacheKey = $cacheKey;
+        $this->metadata = new OidcDiscovery($client, $cache, self::metadataUrl($this->issuer), $this->issuer, cacheKey: $cacheKey.'.document', checkedEndpoints: ['jwks_uri']);
+    }
+
+    /**
+     * RFC 8414 §3: the well-known path is inserted between the host component and the path of the
+     * issuer identifier, so that one host can serve the metadata of several authorization servers.
+     */
+    private static function metadataUrl(string $issuer): string
+    {
+        $parts = parse_url(rtrim($issuer, '/'));
+
+        if (!isset($parts['scheme'], $parts['host'])) {
+            throw new \LogicException(\sprintf('The "issuer" of the authorization server must be an absolute URL to read its metadata, "%s" given.', $issuer));
+        }
+
+        return $parts['scheme'].'://'.$parts['host'].(isset($parts['port']) ? ':'.$parts['port'] : '').self::METADATA_PATH.($parts['path'] ?? '');
     }
 
     /**
@@ -153,7 +200,7 @@ final class Oauth2TokenHandler implements AccessTokenHandlerInterface
      */
     public function getUserBadgeFrom(string $accessToken): UserBadge
     {
-        if (null !== $this->signatureKeyset && (!class_exists(JWSVerifier::class) || !class_exists(Checker\HeaderCheckerManager::class))) {
+        if ((null !== $this->signatureKeyset || null !== $this->metadata) && (!class_exists(JWSVerifier::class) || !class_exists(Checker\HeaderCheckerManager::class))) {
             throw new \LogicException('You cannot verify signed introspection responses since "web-token/jwt-library" is not installed. Try running "composer require web-token/jwt-library".');
         }
 
@@ -226,7 +273,7 @@ final class Oauth2TokenHandler implements AccessTokenHandlerInterface
      */
     private function requestIntrospection(string $accessToken): array
     {
-        if (null === $this->signatureKeyset) {
+        if (!$this->verifiesSignedResponses()) {
             $accept = 'application/json';
         } else {
             $accept = $this->enforceSignedResponse ? self::JWT_RESPONSE_MEDIA_TYPE : self::JWT_RESPONSE_MEDIA_TYPE.', application/json';
@@ -242,18 +289,50 @@ final class Oauth2TokenHandler implements AccessTokenHandlerInterface
         $contentType = strtolower(trim(strtok($response->getHeaders()['content-type'][0] ?? '', ';')));
 
         if (self::JWT_RESPONSE_MEDIA_TYPE === $contentType) {
-            if (null === $this->signatureKeyset) {
+            if (!$this->verifiesSignedResponses()) {
                 throw new BadCredentialsException('The authorization server returned a JWT introspection response, which this resource server is not configured to verify.');
             }
 
             return ['claims' => $this->verifySignedResponse($response->getContent()), 'signed' => true];
         }
 
-        if (null !== $this->signatureKeyset && $this->enforceSignedResponse) {
+        if ($this->verifiesSignedResponses() && $this->enforceSignedResponse) {
             throw new BadCredentialsException(\sprintf('A signed introspection response is required, but the authorization server answered with "%s".', $contentType ?: 'no content type'));
         }
 
         return ['claims' => $response->toArray(), 'signed' => false];
+    }
+
+    private function verifiesSignedResponses(): bool
+    {
+        return null !== $this->signatureKeyset || null !== $this->metadata;
+    }
+
+    /**
+     * The keys the introspection response is verified against: the configured set, or the one the
+     * authorization server publishes at the "jwks_uri" its metadata announces.
+     */
+    private function resolveSignatureKeyset(): JWKSet
+    {
+        if (null !== $this->signatureKeyset) {
+            return $this->signatureKeyset;
+        }
+
+        return JWKSet::createFromKeyData(['keys' => $this->metadataCache->get($this->metadataCacheKey, $this->computeMetadataKeys(...))]);
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function computeMetadataKeys(ItemInterface $item): array
+    {
+        [$keys, $ttl] = OidcJwks::fromResponse($this->metadataClient->request('GET', $this->metadata->getConfiguration()['jwks_uri']), true);
+
+        if (0 < ($ttl ?? -1)) {
+            $item->expiresAfter(min($ttl, OidcJwks::MAX_TTL));
+        }
+
+        return $keys;
     }
 
     /**
@@ -279,12 +358,13 @@ final class Oauth2TokenHandler implements AccessTokenHandlerInterface
             throw new BadCredentialsException('The introspection response is not a valid JWT.', previous: $e);
         }
 
+        $keyset = $this->resolveSignatureKeyset();
         $jwsVerifier = new JWSVerifier($this->signatureAlgorithms);
 
         if (method_exists($jwsVerifier, 'verify')) { // @phpstan-ignore function.alreadyNarrowedType
-            $verified = $jwsVerifier->verify($jws, $this->signatureKeyset, 0)->isVerified();
+            $verified = $jwsVerifier->verify($jws, $keyset, 0)->isVerified();
         } else {
-            $verified = $jwsVerifier->verifyWithKeySet($jws, $this->signatureKeyset, 0); // @phpstan-ignore method.deprecated
+            $verified = $jwsVerifier->verifyWithKeySet($jws, $keyset, 0); // @phpstan-ignore method.deprecated
         }
 
         if (!$verified) {

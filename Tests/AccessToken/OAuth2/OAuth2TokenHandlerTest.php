@@ -408,6 +408,39 @@ class OAuth2TokenHandlerTest extends TestCase
         yield 'plain JSON' => ['application/json', false];
     }
 
+    /**
+     * RFC 8414 §3 inserts the well-known path between the host and the path of the issuer, where
+     * OIDC Discovery 1.0 appends it, so a tenant issuer must still reach the right document.
+     */
+    #[DataProvider('provideIssuersAndMetadataUrls')]
+    #[RequiresPhpExtension('openssl')]
+    public function testReadsTheKeysFromTheAuthorizationServerMetadata(string $issuer, string $metadataUrl)
+    {
+        $requested = [];
+        $client = new MockHttpClient(static function (string $method, string $url) use (&$requested, $issuer): MockResponse {
+            $requested[] = $url;
+
+            return match (true) {
+                str_contains($url, '/.well-known/') => new JsonMockResponse(['issuer' => $issuer, 'jwks_uri' => 'https://as.example.com/jwks']),
+                str_contains($url, '/jwks') => new JsonMockResponse(['keys' => [self::publicJwk()->all() + ['use' => 'sig']]]),
+                default => self::jwtResponse(self::signedResponsePayload(self::activeClaims(['sub' => 'jdoe']), $issuer)),
+            };
+        }, self::ENDPOINT);
+
+        $handler = self::createHandler($client, [self::AUDIENCE], $issuer);
+        $handler->enableSignedResponse(new AlgorithmManager([new ES256()]), null);
+        $handler->enableSignedResponseDiscovery(new ArrayAdapter(), $client, 'metadata.');
+
+        $this->assertSame('jdoe', $handler->getUserBadgeFrom('a-secret-token')->getUserIdentifier());
+        $this->assertContains($metadataUrl, $requested);
+    }
+
+    public static function provideIssuersAndMetadataUrls(): iterable
+    {
+        yield 'a bare origin' => ['https://as.example.com', 'https://as.example.com/.well-known/oauth-authorization-server'];
+        yield 'an issuer carrying a path' => ['https://as.example.com/tenant1', 'https://as.example.com/.well-known/oauth-authorization-server/tenant1'];
+    }
+
     #[RequiresPhpExtension('openssl')]
     public function testRejectsAnIntrospectionResponseSignedWithAnotherKey()
     {
@@ -609,10 +642,10 @@ class OAuth2TokenHandlerTest extends TestCase
     /**
      * @return array<string, mixed>
      */
-    private static function signedResponsePayload(array $introspection): array
+    private static function signedResponsePayload(array $introspection, ?string $issuer = null): array
     {
         return [
-            'iss' => self::ISSUER,
+            'iss' => $issuer ?? self::ISSUER,
             'aud' => self::AUDIENCE,
             'iat' => 1719000000,
             'token_introspection' => $introspection,
