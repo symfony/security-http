@@ -5,7 +5,7 @@ CHANGELOG
 ---
 
  * Add `allowed_time_drift` option to `OidcTokenHandler` to configure time tolerance for token validation (`iat`, `nbf`, `exp` claims)
- * Expose the OAuth2 scopes an access token was granted as the `scope` token attribute, read from the `scope` or `scp` claim
+ * Expose the OAuth2 scopes an access token was granted as the `oauth2_scope` token attribute, read from the `scope` or `scp` claim
  * Add `OAuth2ScopeVoter` to require scopes of the access token, all the ones an `OAUTH2_SCOPE(...)` attribute lists
  * Add `InsufficientScopeAccessDeniedHandler` to answer a denial caused by a missing scope with the RFC 6750 §3.1 challenge
  * Add the `$audiences`, `$issuer`, `$claim`, `$clock` and `$allowedTimeDrift` arguments to `Oauth2TokenHandler`, which validates the `exp`, `nbf`, `iat`, `iss` and `aud` members of the introspection response against them
