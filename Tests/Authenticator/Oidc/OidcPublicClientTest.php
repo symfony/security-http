@@ -129,6 +129,23 @@ class OidcPublicClientTest extends TestCase
         $this->assertSame('test@example.com', $claims['email']);
     }
 
+    public function testRefreshTokenNeedsNoCodeVerifier()
+    {
+        // PKCE binds the authorization code to this client; the refresh token grant of
+        // RFC 6749 Section 6 carries neither a code nor a verifier
+        $mockResponse = new JsonMockResponse(['access_token' => 'access-456']);
+
+        $client = new OidcPublicClient(new MockHttpClient($mockResponse), $this->discovery, 'test-client-id');
+        $tokens = $client->refreshToken('refresh-123');
+
+        parse_str($mockResponse->getRequestOptions()['body'], $body);
+        $this->assertSame('refresh_token', $body['grant_type']);
+        $this->assertSame('refresh-123', $body['refresh_token']);
+        $this->assertSame('test-client-id', $body['client_id']);
+        $this->assertArrayNotHasKey('client_secret', $body);
+        $this->assertSame('access-456', $tokens['access_token']);
+    }
+
     private function createClient(): OidcPublicClient
     {
         return new OidcPublicClient(

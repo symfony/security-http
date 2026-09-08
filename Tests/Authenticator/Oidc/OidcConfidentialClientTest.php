@@ -20,6 +20,7 @@ use Symfony\Component\HttpClient\Response\JsonMockResponse;
 use Symfony\Component\HttpClient\Response\MockResponse;
 use Symfony\Component\Security\Core\Exception\AuthenticationException;
 use Symfony\Component\Security\Http\Authenticator\Oidc\OidcConfidentialClient;
+use Symfony\Component\Security\Http\Exception\OidcInvalidGrantException;
 use Symfony\Component\Security\Http\Oidc\OidcDiscovery;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Symfony\Contracts\HttpClient\ResponseInterface;
@@ -257,6 +258,118 @@ class OidcConfidentialClientTest extends TestCase
         $this->expectExceptionMessage('The OIDC userinfo endpoint request failed');
 
         $this->createClient()->fetchUserInfo('access-token');
+    }
+
+    public function testRefreshToken()
+    {
+        $mockResponse = new JsonMockResponse([
+            'access_token' => 'access-456',
+            'refresh_token' => 'refresh-456',
+            'expires_in' => 300,
+        ]);
+
+        $client = new OidcConfidentialClient(new MockHttpClient($mockResponse), $this->discovery, 'test-client-id', 'test-client-secret');
+        $tokens = $client->refreshToken('refresh-123');
+
+        $this->assertSame('https://provider.example.com/token', $mockResponse->getRequestUrl());
+        parse_str($mockResponse->getRequestOptions()['body'], $body);
+        $this->assertSame('refresh_token', $body['grant_type']);
+        $this->assertSame('refresh-123', $body['refresh_token']);
+        $this->assertSame('test-client-id', $body['client_id']);
+        $this->assertSame('test-client-secret', $body['client_secret']);
+        $this->assertArrayNotHasKey('scope', $body);
+        $this->assertSame('access-456', $tokens['access_token']);
+        $this->assertSame('refresh-456', $tokens['refresh_token']);
+    }
+
+    public function testRefreshTokenNarrowsTheScopes()
+    {
+        $mockResponse = new JsonMockResponse(['access_token' => 'access-456']);
+
+        $client = new OidcConfidentialClient(new MockHttpClient($mockResponse), $this->discovery, 'test-client-id', 'test-client-secret');
+        $client->refreshToken('refresh-123', ['openid', 'profile']);
+
+        parse_str($mockResponse->getRequestOptions()['body'], $body);
+        $this->assertSame('openid profile', $body['scope']);
+    }
+
+    public function testRefreshTokenWithClientSecretBasic()
+    {
+        $mockResponse = new JsonMockResponse(['access_token' => 'access-456']);
+
+        $client = new OidcConfidentialClient(new MockHttpClient($mockResponse), $this->discovery, 'test-client-id', 'test-client-secret', 'client_secret_basic');
+        $client->refreshToken('refresh-123');
+
+        $requestOptions = $mockResponse->getRequestOptions();
+        $this->assertSame(['Authorization: Basic '.base64_encode('test-client-id:test-client-secret')], $requestOptions['normalized_headers']['authorization']);
+        $this->assertStringNotContainsString('client_secret', $requestOptions['body']);
+    }
+
+    public function testRefreshTokenReportsAnInvalidGrantOnItsOwn()
+    {
+        // RFC 6749 Section 5.2: only "invalid_grant" says the refresh token is gone for
+        // good, so it is the only failure a caller may act on by ending the session
+        $client = new OidcConfidentialClient(
+            new MockHttpClient(new JsonMockResponse(['error' => 'invalid_grant', 'error_description' => 'Token is not active'], ['http_code' => 400])),
+            $this->discovery,
+            'test-client-id',
+            'test-client-secret',
+        );
+
+        $this->expectException(OidcInvalidGrantException::class);
+        $this->expectExceptionMessage('The OIDC provider rejected the refresh token');
+
+        $client->refreshToken('refresh-123');
+    }
+
+    public function testRefreshTokenReportsAnotherProviderErrorAsAPlainFailure()
+    {
+        $client = new OidcConfidentialClient(
+            new MockHttpClient(new JsonMockResponse(['error' => 'invalid_client'], ['http_code' => 401])),
+            $this->discovery,
+            'test-client-id',
+            'test-client-secret',
+        );
+
+        try {
+            $client->refreshToken('refresh-123');
+            $this->fail(\sprintf('Expected an "%s" to be thrown.', AuthenticationException::class));
+        } catch (AuthenticationException $e) {
+            $this->assertNotInstanceOf(OidcInvalidGrantException::class, $e);
+            $this->assertStringContainsString('The OIDC token endpoint request failed', $e->getMessage());
+        }
+    }
+
+    public function testRefreshTokenReportsAnUnreachableProviderAsAPlainFailure()
+    {
+        $client = new OidcConfidentialClient(
+            new MockHttpClient(new MockResponse('Service Unavailable', ['http_code' => 503])),
+            $this->discovery,
+            'test-client-id',
+            'test-client-secret',
+        );
+
+        try {
+            $client->refreshToken('refresh-123');
+            $this->fail(\sprintf('Expected an "%s" to be thrown.', AuthenticationException::class));
+        } catch (AuthenticationException $e) {
+            $this->assertNotInstanceOf(OidcInvalidGrantException::class, $e);
+            $this->assertStringContainsString('The OIDC token endpoint request failed', $e->getMessage());
+        }
+    }
+
+    public function testRefreshTokenRejectsAnInsecureTokenEndpoint()
+    {
+        $discovery = $this->createDiscovery(['token_endpoint' => 'http://provider.example.com/token']);
+
+        $this->httpClient->expects($this->never())->method('request');
+
+        $client = new OidcConfidentialClient($this->httpClient, $discovery, 'test-client-id', 'test-client-secret');
+
+        $this->expectException(AuthenticationException::class);
+        $this->expectExceptionMessage('must use HTTPS');
+
+        $client->refreshToken('refresh-123');
     }
 
     private function createClient(string $tokenEndpointAuthMethod = 'client_secret_post'): OidcConfidentialClient
