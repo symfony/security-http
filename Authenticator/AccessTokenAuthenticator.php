@@ -24,6 +24,7 @@ use Symfony\Component\Security\Http\Authentication\AuthenticationSuccessHandlerI
 use Symfony\Component\Security\Http\Authenticator\Passport\Passport;
 use Symfony\Component\Security\Http\Authenticator\Passport\SelfValidatingPassport;
 use Symfony\Component\Security\Http\Authenticator\Token\PostAuthenticationToken;
+use Symfony\Component\Security\Http\EntryPoint\FallbackAuthenticationEntryPointInterface;
 use Symfony\Component\Security\Http\SecurityRequestAttributes;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
@@ -33,10 +34,14 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  *
  * @author Florent Morselli <florent.morselli@spomky-labs.com>
  */
-class AccessTokenAuthenticator implements AuthenticatorInterface
+class AccessTokenAuthenticator implements AuthenticatorInterface, FallbackAuthenticationEntryPointInterface
 {
     private ?TranslatorInterface $translator = null;
 
+    /**
+     * @param string|null $resourceMetadataUri The URL of the RFC 9728 protected resource metadata document to advertise
+     *                                         in the "WWW-Authenticate" header; a path is resolved against the request
+     */
     public function __construct(
         private readonly AccessTokenHandlerInterface $accessTokenHandler,
         private readonly AccessTokenExtractorInterface $accessTokenExtractor,
@@ -44,6 +49,7 @@ class AccessTokenAuthenticator implements AuthenticatorInterface
         private readonly ?AuthenticationSuccessHandlerInterface $successHandler = null,
         private readonly ?AuthenticationFailureHandlerInterface $failureHandler = null,
         private readonly ?string $realm = null,
+        private readonly ?string $resourceMetadataUri = null,
     ) {
     }
 
@@ -98,7 +104,19 @@ class AccessTokenAuthenticator implements AuthenticatorInterface
         return new Response(
             null,
             Response::HTTP_UNAUTHORIZED,
-            ['WWW-Authenticate' => $this->getAuthenticateHeader($errorMessage)]
+            ['WWW-Authenticate' => $this->getAuthenticateHeader($request, 'invalid_token', $errorMessage)]
+        );
+    }
+
+    public function start(Request $request, ?AuthenticationException $authException = null): Response
+    {
+        // RFC 6750, Section 3: the challenge of a request that carries no access token at all
+        // holds no error code, as an error code describes a token the client did send. This is
+        // the request an RFC 9728 client makes to discover where to get a token from.
+        return new Response(
+            null,
+            Response::HTTP_UNAUTHORIZED,
+            ['WWW-Authenticate' => $this->getAuthenticateHeader($request)]
         );
     }
 
@@ -109,13 +127,19 @@ class AccessTokenAuthenticator implements AuthenticatorInterface
 
     /**
      * @see https://datatracker.ietf.org/doc/html/rfc6750#section-3
+     * @see https://datatracker.ietf.org/doc/html/rfc9728#section-5.1
      */
-    private function getAuthenticateHeader(?string $errorDescription = null): string
+    private function getAuthenticateHeader(Request $request, ?string $error = null, ?string $errorDescription = null): string
     {
         $data = [
             'realm' => $this->realm,
-            'error' => 'invalid_token',
+            'error' => $error,
             'error_description' => $errorDescription,
+            'resource_metadata' => match (true) {
+                null === $this->resourceMetadataUri => null,
+                str_starts_with($this->resourceMetadataUri, '/') => $request->getUriForPath($this->resourceMetadataUri),
+                default => $this->resourceMetadataUri,
+            },
         ];
         $values = [];
         foreach ($data as $k => $v) {
@@ -125,6 +149,6 @@ class AccessTokenAuthenticator implements AuthenticatorInterface
             $values[] = \sprintf('%s="%s"', $k, $v);
         }
 
-        return \sprintf('Bearer %s', implode(',', $values));
+        return $values ? 'Bearer '.implode(',', $values) : 'Bearer';
     }
 }

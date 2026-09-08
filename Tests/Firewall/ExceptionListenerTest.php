@@ -16,6 +16,8 @@ use PHPUnit\Framework\TestCase;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\Session\Session;
+use Symfony\Component\HttpFoundation\Session\Storage\MockArraySessionStorage;
 use Symfony\Component\HttpKernel\Event\ExceptionEvent;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
@@ -28,6 +30,7 @@ use Symfony\Component\Security\Core\Exception\AuthenticationException;
 use Symfony\Component\Security\Core\Exception\LogoutException;
 use Symfony\Component\Security\Http\Authorization\AccessDeniedHandlerInterface;
 use Symfony\Component\Security\Http\EntryPoint\AuthenticationEntryPointInterface;
+use Symfony\Component\Security\Http\EntryPoint\FallbackAuthenticationEntryPointInterface;
 use Symfony\Component\Security\Http\Firewall\ExceptionListener;
 use Symfony\Component\Security\Http\HttpUtils;
 
@@ -170,6 +173,28 @@ class ExceptionListenerTest extends TestCase
         ];
     }
 
+    public function testTargetPathIsSavedForAnEntryPointThatStartsAnAuthentication()
+    {
+        $event = $this->createEvent(new AuthenticationException(), null, $session = new Session(new MockArraySessionStorage()));
+
+        $this->createExceptionListener(null, null, null, $this->createEntryPoint())->onKernelException($event);
+
+        $this->assertSame('http://localhost/', $session->get('_security.key.target_path'));
+    }
+
+    public function testNoTargetPathIsSavedForAnEntryPointThatOnlyStandsIn()
+    {
+        $entryPoint = $this->createMock(FallbackAuthenticationEntryPointInterface::class);
+        $entryPoint->expects($this->once())->method('start')->willReturn(new Response(null, 401));
+
+        $event = $this->createEvent(new AuthenticationException(), null, $session = new Session(new MockArraySessionStorage()));
+
+        $this->createExceptionListener(null, null, null, $entryPoint)->onKernelException($event);
+
+        $this->assertFalse($session->isStarted());
+        $this->assertNull($session->get('_security.key.target_path'));
+    }
+
     private function createEntryPoint(?Response $response = null)
     {
         $entryPoint = $this->createMock(AuthenticationEntryPointInterface::class);
@@ -186,11 +211,15 @@ class ExceptionListenerTest extends TestCase
         return $trustResolver;
     }
 
-    private function createEvent(\Exception $exception, $kernel = null)
+    private function createEvent(\Exception $exception, $kernel = null, ?Session $session = null)
     {
         $kernel ??= $this->createStub(HttpKernelInterface::class);
+        $request = Request::create('/');
+        if (null !== $session) {
+            $request->setSession($session);
+        }
 
-        return new ExceptionEvent($kernel, Request::create('/'), HttpKernelInterface::MAIN_REQUEST, $exception);
+        return new ExceptionEvent($kernel, $request, HttpKernelInterface::MAIN_REQUEST, $exception);
     }
 
     private function createExceptionListener(?TokenStorageInterface $tokenStorage = null, ?AuthenticationTrustResolverInterface $trustResolver = null, ?HttpUtils $httpUtils = null, ?AuthenticationEntryPointInterface $authenticationEntryPoint = null, $errorPage = null, ?AccessDeniedHandlerInterface $accessDeniedHandler = null)
